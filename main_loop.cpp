@@ -1,23 +1,23 @@
 #include <SFML/Window.hpp>
 #include <GL/glew.h>
 
-void main_loop(sf::Window& window, GLuint shaderProgram, GLuint vao, GLuint vbo)
+void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo)
 {
     bool running = true;
 
     while (running)
     {
-        sf::Event windowEvent;
-        while (window.pollEvent(windowEvent))
+        sf::Event window_event;
+        while (window.pollEvent(window_event))
         {
-            switch (windowEvent.type)
+            switch (window_event.type)
             {
             case sf::Event::Closed:
                 running = false;
                 break;
 
             case sf::Event::KeyPressed:
-                if (windowEvent.key.code == sf::Keyboard::Escape)
+                if (window_event.key.code == sf::Keyboard::Escape)
                 {
                     running = false;
                 }

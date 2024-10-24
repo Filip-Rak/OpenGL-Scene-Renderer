@@ -8,7 +8,7 @@
 #include "main_loop.hpp"
 
 // Vertex shader source code
-const GLchar* vertexSource = R"glsl(
+const GLchar* vertex_source = R"glsl(
 #version 150 core
 in vec2 position; // Input vertex position
 in vec3 color;     // Input vertex color
@@ -21,7 +21,7 @@ void main() {
 )glsl";
 
 // Fragment shader source code
-const GLchar* fragmentSource = R"glsl(
+const GLchar* fragment_source = R"glsl(
 #version 150 core
 in vec3 Color;      // Color received from the vertex shader
 out vec4 outColor;   // Output color to the framebuffer
@@ -118,21 +118,21 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // Create and compile the vertex shader
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexSource, NULL);
-    glCompileShader(vertexShader);
+    GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex_shader, 1, &vertex_source, NULL);
+    glCompileShader(vertex_shader);
 
     // Create and compile the fragment shader
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
-    glCompileShader(fragmentShader);
+    GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment_shader, 1, &fragment_source, NULL);
+    glCompileShader(fragment_shader);
 
     // Check for shader compilation
-    if (!shader_compiled(vertexShader, true, "Vertex") || !shader_compiled(fragmentShader, true, "Fragment"))
+    if (!shader_compiled(vertex_shader, true, "Vertex") || !shader_compiled(fragment_shader, true, "Fragment"))
     {
         // Cleanup: delete shaders, buffers, and close the window
-        glDeleteShader(fragmentShader);
-        glDeleteShader(vertexShader);
+        glDeleteShader(fragment_shader);
+        glDeleteShader(vertex_shader);
         glDeleteBuffers(1, &vbo);
         glDeleteVertexArrays(1, &vao);
 
@@ -142,38 +142,38 @@ int main()
 
 
     // Link both shaders into a single shader program
-    GLuint shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glBindFragDataLocation(shaderProgram, 0, "outColor");  // Bind fragment output
-    glLinkProgram(shaderProgram);
+    GLuint shader_program = glCreateProgram();
+    glAttachShader(shader_program, vertex_shader);
+    glAttachShader(shader_program, fragment_shader);
+    glBindFragDataLocation(shader_program, 0, "outColor");  // Bind fragment output
+    glLinkProgram(shader_program);
 
     // Use the program if linking succeded
-    if (program_linked(shaderProgram, true, "Shader"))
-        glUseProgram(shaderProgram);
+    if (program_linked(shader_program, true, "Shader"))
+        glUseProgram(shader_program);
     else
     {
-        glDeleteProgram(shaderProgram);
+        glDeleteProgram(shader_program);
         return -2;
     }
 
    
     // Specify the layout of the vertex data
-    GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
-    glEnableVertexAttribArray(posAttrib);
-    glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), 0);
+    GLint pos_attrib = glGetAttribLocation(shader_program, "position");
+    glEnableVertexAttribArray(pos_attrib);
+    glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), 0);
 
-    GLint colAttrib = glGetAttribLocation(shaderProgram, "color");
-    glEnableVertexAttribArray(colAttrib);
-    glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    GLint col_attrib = glGetAttribLocation(shader_program, "color");
+    glEnableVertexAttribArray(col_attrib);
+    glVertexAttribPointer(col_attrib, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
 
     // Main event loop
-    main_loop(window, shaderProgram, vao, vbo);
+    main_loop(window, shader_program, vao, vbo);
 
     // Cleanup: delete shaders, buffers, and close the window
-    glDeleteProgram(shaderProgram);
-    glDeleteShader(fragmentShader);
-    glDeleteShader(vertexShader);
+    glDeleteProgram(shader_program);
+    glDeleteShader(fragment_shader);
+    glDeleteShader(vertex_shader);
     glDeleteBuffers(1, &vbo);
     glDeleteVertexArrays(1, &vao);
 
