@@ -5,11 +5,46 @@
 #include <GL/glew.h>
 #include <SFML/Window.hpp>
 #include <iostream>
-#include "main_loop.hpp"
+#include <time.h>
+#include <cmath>
 
 // Constants
 // --------------------
-constexpr int DATA_PER_VERT = 5;
+const int primitives_num = 10;
+const GLenum primitives[primitives_num] =
+{
+    GL_POINTS,        // 0
+    GL_LINES,         // 1
+    GL_LINE_LOOP,     // 2
+    GL_LINE_STRIP,    // 3
+    GL_TRIANGLES,     // 4
+    GL_TRIANGLE_STRIP,// 5
+    GL_TRIANGLE_FAN,  // 6
+    GL_QUADS,         // 7 
+    GL_QUAD_STRIP,    // 8 
+    GL_POLYGON        // 9
+};
+
+const std::string primitives_names[primitives_num] =
+{
+    "GL_POINTS",        // 0
+    "GL_LINES",         // 1
+    "GL_LINE_LOOP",     // 2
+    "GL_LINE_STRIP",    // 3
+    "GL_TRIANGLES",     // 4
+    "GL_TRIANGLE_STRIP",// 5
+    "GL_TRIANGLE_FAN",  // 6
+    "GL_QUADS",         // 7
+    "GL_QUAD_STRIP",    // 8
+    "GL_POLYGON",       // 9
+};
+
+constexpr int DATA_PER_VERT = 6;
+constexpr double PI = 3.14159265358979323846;
+constexpr float WINDOW_WIDTH = 800.0;
+constexpr float WINDOW_HEIGHT = 600.0;
+constexpr int MIN_VERTS = 1;
+constexpr int MAX_VERTS = 18;
 
 // Shaders
 // --------------------
@@ -17,13 +52,13 @@ constexpr int DATA_PER_VERT = 5;
 // Vertex shader source code
 const GLchar* vertex_source = R"glsl(
 #version 150 core
-in vec2 position; // Input vertex position
+in vec3 position; // Input vertex position
 in vec3 color;     // Input vertex color
 out vec3 Color;    // Output color passed to the fragment shader
 
 void main() {
     Color = color;  // Pass the color to the fragment shader
-    gl_Position = vec4(position, 0.0, 1.0);  // Set the position of the vertex
+    gl_Position = vec4(position, 1.0);  // Set the position of the vertex
 }
 )glsl";
 
@@ -41,9 +76,67 @@ void main() {
 // Main loop functions
 // --------------------
 
-void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo)
+void find_polygon_verts(GLfloat* vertices, int vert_num, float radius)
+{
+    // Starting angle and change of angles between every vert
+    float start_angle = 0.0f;
+    float angle_step = 2.0f * PI / vert_num;
+
+    for (int i = 0; i < vert_num; i++)
+    {
+        // Angle of the current vert
+        float angle = start_angle + i * angle_step;
+
+        // Vertice coordinates
+        vertices[i * DATA_PER_VERT] = radius * cos(angle);  // X
+        vertices[i * DATA_PER_VERT + 1] = radius * sin(angle);  // Y
+        vertices[i * DATA_PER_VERT + 2] = 0; //(float)rand() / RAND_MAX;  // Z
+
+        // Colors
+        vertices[i * DATA_PER_VERT + 3] = (float)rand() / RAND_MAX; // R
+        vertices[i * DATA_PER_VERT + 4] = (float)rand() / RAND_MAX; // G
+        vertices[i * DATA_PER_VERT + 5] = (float)rand() / RAND_MAX; // B
+    }
+}
+
+int mouse_to_verts(float mouse_pos_y)
+{
+    // Normalize the mouse Y position (0 at the top, 1 at the bottom)
+    float normalized_mouse_y = mouse_pos_y / WINDOW_HEIGHT;
+
+    // Invert the Y position so it progresses from bottom (0) to top (1)
+    float top_down_mouse_y = 1.0f - normalized_mouse_y;
+
+    // Calculate the number of vertices based on the mouse position within the defined vertex range
+    float vertex_range = MAX_VERTS - MIN_VERTS;
+    float vertex_adj = vertex_range * top_down_mouse_y;
+
+    // Set the vertex count by adjusting based on the mouse position
+    int new_vert_num = (int)(MIN_VERTS + vertex_adj);
+
+    return new_vert_num;
+}
+
+GLfloat* update_vertices(GLfloat* vertices, int vert_num, GLuint vbo)
+{
+    // Reallocate memory for the new number of vertices
+    delete[] vertices;
+    vertices = new GLfloat[vert_num * DATA_PER_VERT];
+
+    // Update vertices based on the new vertex count
+    find_polygon_verts(vertices, vert_num, 1.0f);
+
+    // Upload the updated vertex data to the GPU
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, vert_num * DATA_PER_VERT * sizeof(GLfloat), vertices, GL_DYNAMIC_DRAW);
+
+    return vertices;
+}
+
+void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo, int vert_num, GLfloat* vertices)
 {
     bool running = true;
+    GLenum used_primitive = GL_TRIANGLES;
 
     while (running)
     {
@@ -60,7 +153,65 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                 if (window_event.key.code == sf::Keyboard::Escape)
                 {
                     running = false;
+                }                
+                else if (window_event.key.code == sf::Keyboard::Up)
+                {
+                    int new_vert_num = vert_num + 1;
+                    if (new_vert_num > MAX_VERTS)
+                        new_vert_num = MAX_VERTS;
+
+                    // Avoid unneccessary updates
+                    if (new_vert_num == vert_num)
+                        break;
+
+                    // Update vert number
+                    vert_num = new_vert_num;
+                    std::cout << "Vertices: " << vert_num << "\n";
+
+                    // Update the display
+                    vertices = update_vertices(vertices, vert_num, vbo);
                 }
+                else if (window_event.key.code == sf::Keyboard::Down)
+                {
+                    int new_vert_num = vert_num - 1;
+                    if (new_vert_num < MIN_VERTS)
+                        new_vert_num = MIN_VERTS;
+
+                    // Avoid unneccessary updates
+                    if (new_vert_num == vert_num)
+                        break;
+
+                    // Update vert number
+                    vert_num = new_vert_num;
+                    std::cout << "Vertices: " << vert_num << "\n";
+
+                    // Update the display
+                    vertices = update_vertices(vertices, vert_num, vbo);
+                }
+                // Check if numerical key has been pressed
+                else if (window_event.key.code >= sf::Keyboard::Num0 && window_event.key.code <= sf::Keyboard::Num9)
+                {
+                    // Save numerical key as an integer
+                    int pressed_number = window_event.key.code - sf::Keyboard::Num0;
+                    used_primitive = primitives[pressed_number % primitives_num];
+                    std::cout << "Set primitive: " << primitives_names[used_primitive] << "\n";
+                }
+
+                break;
+            case sf::Event::MouseMoved:
+
+                // Convert mouse pos to vertices
+                int new_vert_num = mouse_to_verts(window_event.mouseMove.y);
+                if (new_vert_num == vert_num)   // Avoid updates if unneccessary
+                    break;
+
+                // Update vert number
+                vert_num = new_vert_num;
+                std::cout << "Vertices: " << vert_num << "\n";
+
+                // Update the display
+                vertices = update_vertices(vertices, vert_num, vbo);
+
                 break;
             }
         }
@@ -69,8 +220,8 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Draw your shape here
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        // Draw the shape here
+        glDrawArrays(used_primitive, 0, vert_num);
 
         // Swap the front and back buffers
         window.display();
@@ -138,13 +289,15 @@ bool program_linked(GLuint program, bool console_dump = true, std::string name_i
 
 int main() 
 {
+    srand(time(NULL));
+
     // Setup OpenGL context settings
     sf::ContextSettings settings;
     settings.depthBits = 24;     // Bits for depth buffer
     settings.stencilBits = 8;    // Bits for stencil buffer
 
     // Create a rendering window with OpenGL context
-    sf::Window window(sf::VideoMode(800, 600, 32), "OpenGL", sf::Style::Titlebar | sf::Style::Close, settings);
+    sf::Window window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT, 32), "OpenGL", sf::Style::Titlebar | sf::Style::Close, settings);
 
     // Initialize GLEW (must be done after creating the window and OpenGL context)
     glewExperimental = GL_TRUE;
@@ -160,13 +313,14 @@ int main()
     glGenBuffers(1, &vbo);
 
     // Vertex data: positions (x, y) and colors (r, g, b) for each vertex
-    GLfloat vertices[] = {
-        0.0f, 0.5f, 1.0f, 0.0f, 0.0f,  // Vertex 1: position (0.0, 0.5), color (red)
-        0.5f, -0.5f, 0.0f, 1.0f, 0.0f, // Vertex 2: position (0.5, -0.5), color (green)
-        -0.5f, -0.5f, 0.0f, 0.0f, 1.0f // Vertex 3: position (-0.5, -0.5), color (blue)
-    };
+    int vert_num = 3;
+    GLfloat* vertices = new GLfloat[vert_num * DATA_PER_VERT];
+
+    // Generate a polygon
+    find_polygon_verts(vertices, vert_num, 1.0f);
+    
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vert_num * DATA_PER_VERT * sizeof(GLfloat), vertices, GL_STATIC_DRAW);
 
     // Create and compile the vertex shader
     GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
@@ -212,14 +366,14 @@ int main()
     // Specify the layout of the vertex data
     GLint pos_attrib = glGetAttribLocation(shader_program, "position");
     glEnableVertexAttribArray(pos_attrib);
-    glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), 0);
+    glVertexAttribPointer(pos_attrib, vert_num, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), 0);
 
     GLint col_attrib = glGetAttribLocation(shader_program, "color");
     glEnableVertexAttribArray(col_attrib);
-    glVertexAttribPointer(col_attrib, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    glVertexAttribPointer(col_attrib, 3, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
 
     // Main event loop
-    main_loop(window, shader_program, vao, vbo);
+    main_loop(window, shader_program, vao, vbo, vert_num, vertices);
 
     // Cleanup: delete shaders, buffers, and close the window
     glDeleteProgram(shader_program);
