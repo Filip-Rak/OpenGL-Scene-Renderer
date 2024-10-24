@@ -7,6 +7,13 @@
 #include <iostream>
 #include "main_loop.hpp"
 
+// Constants
+// --------------------
+constexpr int DATA_PER_VERT = 5;
+
+// Shaders
+// --------------------
+
 // Vertex shader source code
 const GLchar* vertex_source = R"glsl(
 #version 150 core
@@ -30,6 +37,48 @@ void main() {
     outColor = vec4(Color, 1.0);  // Set the fragment color with full opacity
 }
 )glsl";
+
+// Main loop functions
+// --------------------
+
+void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo)
+{
+    bool running = true;
+
+    while (running)
+    {
+        sf::Event window_event;
+        while (window.pollEvent(window_event))
+        {
+            switch (window_event.type)
+            {
+            case sf::Event::Closed:
+                running = false;
+                break;
+
+            case sf::Event::KeyPressed:
+                if (window_event.key.code == sf::Keyboard::Escape)
+                {
+                    running = false;
+                }
+                break;
+            }
+        }
+
+        // Clear the screen to black
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Draw your shape here
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        // Swap the front and back buffers
+        window.display();
+    }
+}
+
+// Validation functions
+// ------------------
 
 bool shader_compiled(GLuint shader, bool console_dump = true, std::string name_identifier = "")
 {
@@ -84,6 +133,8 @@ bool program_linked(GLuint program, bool console_dump = true, std::string name_i
     return true;
 }
 
+// Main functions
+// --------------------
 
 int main() 
 {
