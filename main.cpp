@@ -39,12 +39,12 @@ const std::string primitives_names[primitives_num] =
     "GL_POLYGON",       // 9
 };
 
-constexpr int DATA_PER_VERT = 6;
-constexpr double PI = 3.14159265358979323846;
-constexpr float WINDOW_WIDTH = 800.0;
-constexpr float WINDOW_HEIGHT = 600.0;
-constexpr int MIN_VERTS = 1;
-constexpr int MAX_VERTS = 18;
+const int DATA_PER_VERT = 6;
+const double PI = 3.14159265358979323846;
+const float WINDOW_WIDTH = 800.0;
+const float WINDOW_HEIGHT = 600.0;
+const int MIN_VERTS = 1;
+const int MAX_VERTS = 18;
 
 // Shaders
 // --------------------
@@ -75,7 +75,6 @@ void main() {
 
 // Main loop functions
 // --------------------
-
 void find_polygon_verts(GLfloat* vertices, int vert_num, float radius)
 {
     // Starting angle and change of angles between every vert
@@ -90,7 +89,7 @@ void find_polygon_verts(GLfloat* vertices, int vert_num, float radius)
         // Vertice coordinates
         vertices[i * DATA_PER_VERT] = radius * cos(angle);  // X
         vertices[i * DATA_PER_VERT + 1] = radius * sin(angle);  // Y
-        vertices[i * DATA_PER_VERT + 2] = 0; //(float)rand() / RAND_MAX;  // Z
+        vertices[i * DATA_PER_VERT + 2] = (float)rand() / RAND_MAX;  // Z
 
         // Colors
         vertices[i * DATA_PER_VERT + 3] = (float)rand() / RAND_MAX; // R
@@ -220,7 +219,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Draw the shape here
+        // Draw the shape
         glDrawArrays(used_primitive, 0, vert_num);
 
         // Swap the front and back buffers
@@ -230,14 +229,13 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
 
 // Validation functions
 // ------------------
-
 bool shader_compiled(GLuint shader, bool console_dump = true, std::string name_identifier = "")
 {
     // Check for compilation error
     GLint success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 
-    if (!success)
+    if (!success && console_dump)
     {
         // Get error log length
         GLint log_length;
@@ -251,11 +249,9 @@ bool shader_compiled(GLuint shader, bool console_dump = true, std::string name_i
 
         // Print the error message
         std::cerr << "ERROR: " << name_identifier << " Shader Compilation Failed!:\n\t" << error_msg << "\n";
-
-        return false;
     }
 
-    return true;
+    return success;
 }
 
 bool program_linked(GLuint program, bool console_dump = true, std::string name_identifier = "")
@@ -263,7 +259,7 @@ bool program_linked(GLuint program, bool console_dump = true, std::string name_i
     GLint success;
     glGetProgramiv(program, GL_LINK_STATUS, &success);
 
-    if (!success)
+    if (!success && console_dump)
     {
         // Get error log length
         GLint log_length;
@@ -277,18 +273,16 @@ bool program_linked(GLuint program, bool console_dump = true, std::string name_i
 
         // Print the error message
         std::cerr << "ERROR: " << name_identifier << " Program Linking Failed!:\n\t" << error_msg << "\n";
-
-        return false;
     }
 
-    return true;
+    return success;
 }
 
-// Main functions
+// Main function
 // --------------------
-
 int main() 
 {
+    // Init for radom number generation
     srand(time(NULL));
 
     // Setup OpenGL context settings
@@ -358,7 +352,14 @@ int main()
         glUseProgram(shader_program);
     else
     {
+        // Cleanup: delete shaders, buffers, and close the window
         glDeleteProgram(shader_program);
+        glDeleteShader(fragment_shader);
+        glDeleteShader(vertex_shader);
+        glDeleteBuffers(1, &vbo);
+        glDeleteVertexArrays(1, &vao);
+
+        window.close();  // Close the rendering window
         return -2;
     }
 
@@ -366,11 +367,11 @@ int main()
     // Specify the layout of the vertex data
     GLint pos_attrib = glGetAttribLocation(shader_program, "position");
     glEnableVertexAttribArray(pos_attrib);
-    glVertexAttribPointer(pos_attrib, vert_num, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), 0);
+    glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), 0);
 
     GLint col_attrib = glGetAttribLocation(shader_program, "color");
     glEnableVertexAttribArray(col_attrib);
-    glVertexAttribPointer(col_attrib, 3, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    glVertexAttribPointer(col_attrib, 3, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
 
     // Main event loop
     main_loop(window, shader_program, vao, vbo, vert_num, vertices);
