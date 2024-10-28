@@ -45,6 +45,7 @@ const float WINDOW_WIDTH = 800.0;
 const float WINDOW_HEIGHT = 600.0;
 const int MIN_VERTS = 1;
 const int MAX_VERTS = 18;
+const std::string separator = std::string(45, '-') + "\n";
 
 // Shaders
 // --------------------
@@ -349,7 +350,13 @@ int main()
 
     // Use the program if linking succeded
     if (program_linked(shader_program, true, "Shader"))
+    {
+        std::cout << separator;
+        std::cout << "Version:\t" << glGetString(GL_VERSION) << "\n";
+        std::cout << "Running on:\t" << glGetString(GL_RENDERER) << "\n";
+        std::cout << separator;
         glUseProgram(shader_program);
+    }
     else
     {
         // Cleanup: delete shaders, buffers, and close the window
