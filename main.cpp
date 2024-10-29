@@ -194,7 +194,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                     // Save numerical key as an integer
                     int pressed_number = window_event.key.code - sf::Keyboard::Num0;
                     used_primitive = primitives[pressed_number % primitives_num];
-                    std::cout << "Set primitive: " << primitives_names[used_primitive] << "\n";
+                    std::cout << "Set primitive: " << primitives_names[used_primitive % primitives_num] << "\n";
                 }
 
                 break;
