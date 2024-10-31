@@ -7,6 +7,9 @@
 #include <iostream>
 #include <time.h>
 #include <cmath>
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
+#include <gtc/type_ptr.hpp>
 
 // Constants
 // --------------------
@@ -50,26 +53,37 @@ const std::string separator = std::string(45, '-') + "\n";
 // Shaders
 // --------------------
 
-// Vertex shader source code
+// Vertex shader takes care of positioning on the screen
 const GLchar* vertex_source = R"glsl(
 #version 150 core
+
 in vec3 position; // Input vertex position
 in vec3 color;     // Input vertex color
 out vec3 Color;    // Output color passed to the fragment shader
 
-void main() {
-    Color = color;  // Pass the color to the fragment shader
-    gl_Position = vec4(position, 1.0);  // Set the position of the vertex
+// Set outside the shader
+uniform mat4 model_matrix;  // Model
+uniform mat4 view_matrix;   // View (camera)
+uniform mat4 proj_matrix;   // Projection
+
+void main() 
+{
+    // Pass the color to the fragment shader
+    Color = color;  
+
+    // Set the position of the vertex
+    gl_Position = proj_matrix * view_matrix * model_matrix * vec4(position, 1.0);
 }
 )glsl";
 
-// Fragment shader source code
+// Fragment shader's job is to figure out area between surfaces
 const GLchar* fragment_source = R"glsl(
 #version 150 core
 in vec3 Color;      // Color received from the vertex shader
 out vec4 outColor;   // Output color to the framebuffer
 
-void main() {
+void main() 
+{
     outColor = vec4(Color, 1.0);  // Set the fragment color with full opacity
 }
 )glsl";
@@ -340,6 +354,11 @@ int main()
         return -1;
     }
 
+    // Declare shader uniform data
+    glm::mat4 model_matrix = glm::mat4(1.0f);
+    model_matrix = glm::rotate(model_matrix, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 view_matrix = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 proj_matrix = glm::perspective(glm::radians(45.0f), 800.0f / 800.0f, 0.06f, 100.0f);
 
     // Link both shaders into a single shader program
     GLuint shader_program = glCreateProgram();
@@ -351,11 +370,24 @@ int main()
     // Use the program if linking succeded
     if (program_linked(shader_program, true, "Shader"))
     {
+        // Debug info
         std::cout << separator;
         std::cout << "Version:\t" << glGetString(GL_VERSION) << "\n";
         std::cout << "Running on:\t" << glGetString(GL_RENDERER) << "\n";
         std::cout << separator;
+
+        // Use the program
         glUseProgram(shader_program);
+
+        // Add uniform data
+        GLint uni_trans = glGetUniformLocation(shader_program, "model_matrix");
+        glUniformMatrix4fv(uni_trans, 1, GL_FALSE, glm::value_ptr(model_matrix));
+
+        GLint uni_view = glGetUniformLocation(shader_program, "view_matrix");
+        glUniformMatrix4fv(uni_view, 1, GL_FALSE, glm::value_ptr(view_matrix));
+
+        GLint uni_proj = glGetUniformLocation(shader_program, "proj_matrix");
+        glUniformMatrix4fv(uni_proj, 1, GL_FALSE, glm::value_ptr(proj_matrix));       
     }
     else
     {
