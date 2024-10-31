@@ -13,6 +13,13 @@
 
 // Constants
 // --------------------
+
+// Flags
+const bool enable_camera_manip = true;
+const bool enable_vert_manip = false;
+const bool enable_primitve_manip = false;
+
+// Primitives
 const int primitives_num = 10;
 const GLenum primitives[primitives_num] =
 {
@@ -47,7 +54,7 @@ const double PI = 3.14159265358979323846;
 const float WINDOW_WIDTH = 800.0;
 const float WINDOW_HEIGHT = 600.0;
 const int MIN_VERTS = 1;
-const int MAX_VERTS = 18;
+const int MAX_VERTS = 36;
 const std::string separator = std::string(45, '-') + "\n";
 
 // Shaders
@@ -87,6 +94,59 @@ void main()
     outColor = vec4(Color, 1.0);  // Set the fragment color with full opacity
 }
 )glsl";
+
+
+// Shapes
+GLfloat cube_vertices[] =
+{
+    // Front
+    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
+    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+
+    // Rear
+    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,
+    -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+
+    // Left
+    -0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+    -0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+    -0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+
+    // Right
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+    0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+    0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+    0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+
+    // Bottom
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+    0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+
+    // Top
+    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+    -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f
+};
 
 // Main loop functions
 // --------------------
@@ -178,110 +238,122 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                 }
 
                 // Vertice number manipulation
-                if (window_event.key.code == sf::Keyboard::Up)
+                if (enable_vert_manip)
                 {
-                    int new_vert_num = vert_num + 1;
-                    if (new_vert_num > MAX_VERTS)
-                        new_vert_num = MAX_VERTS;
+                    if (window_event.key.code == sf::Keyboard::Up)
+                    {
+                        int new_vert_num = vert_num + 1;
+                        if (new_vert_num > MAX_VERTS)
+                            new_vert_num = MAX_VERTS;
 
-                    // Avoid unneccessary updates
-                    if (new_vert_num == vert_num)
-                        break;
+                        // Avoid unneccessary updates
+                        if (new_vert_num == vert_num)
+                            break;
 
-                    // Update vert number
-                    vert_num = new_vert_num;
-                    std::cout << "Vertices: " << vert_num << "\n";
+                        // Update vert number
+                        vert_num = new_vert_num;
+                        std::cout << "Vertices: " << vert_num << "\n";
 
-                    // Update the display
-                    vertices = update_vertices(vertices, vert_num, vbo);
+                        // Update the display
+                        vertices = update_vertices(vertices, vert_num, vbo);
+                    }
+
+                    if (window_event.key.code == sf::Keyboard::Down)
+                    {
+                        int new_vert_num = vert_num - 1;
+                        if (new_vert_num < MIN_VERTS)
+                            new_vert_num = MIN_VERTS;
+
+                        // Avoid unneccessary updates
+                        if (new_vert_num == vert_num)
+                            break;
+
+                        // Update vert number
+                        vert_num = new_vert_num;
+                        std::cout << "Vertices: " << vert_num << "\n";
+
+                        // Update the display
+                        vertices = update_vertices(vertices, vert_num, vbo);
+                    }
                 }
 
-                if (window_event.key.code == sf::Keyboard::Down)
+                if (enable_primitve_manip)
                 {
-                    int new_vert_num = vert_num - 1;
-                    if (new_vert_num < MIN_VERTS)
-                        new_vert_num = MIN_VERTS;
-
-                    // Avoid unneccessary updates
-                    if (new_vert_num == vert_num)
-                        break;
-
-                    // Update vert number
-                    vert_num = new_vert_num;
-                    std::cout << "Vertices: " << vert_num << "\n";
-
-                    // Update the display
-                    vertices = update_vertices(vertices, vert_num, vbo);
-                }
-
-                // Prototype manipulation
-                if (window_event.key.code >= sf::Keyboard::Num0 && window_event.key.code <= sf::Keyboard::Num9)
-                {
-                    // Save numerical key as an integer
-                    int pressed_number = window_event.key.code - sf::Keyboard::Num0;
-                    used_primitive = primitives[pressed_number % primitives_num];
-                    std::cout << "Set primitive: " << primitives_names[used_primitive % primitives_num] << "\n";
+                    // Primitive manipulation
+                    if (window_event.key.code >= sf::Keyboard::Num0 && window_event.key.code <= sf::Keyboard::Num9)
+                    {
+                        // Save numerical key as an integer
+                        int pressed_number = window_event.key.code - sf::Keyboard::Num0;
+                        used_primitive = primitives[pressed_number % primitives_num];
+                        std::cout << "Set primitive: " << primitives_names[used_primitive % primitives_num] << "\n";
+                    }
                 }
 
                 break;
             case sf::Event::MouseMoved:
 
-                // Convert mouse pos to vertices
-                int new_vert_num = mouse_to_verts(window_event.mouseMove.y);
-                if (new_vert_num == vert_num)   // Avoid updates if unneccessary
-                    break;
+                if (enable_vert_manip)
+                {
+                    // Convert mouse pos to vertices
+                    int new_vert_num = mouse_to_verts(window_event.mouseMove.y);
+                    if (new_vert_num == vert_num)   // Avoid updates if unneccessary
+                        break;
 
-                // Update vert number
-                vert_num = new_vert_num;
-                std::cout << "Vertices: " << vert_num << "\n";
+                    // Update vert number
+                    vert_num = new_vert_num;
+                    std::cout << "Vertices: " << vert_num << "\n";
 
-                // Update the display
-                vertices = update_vertices(vertices, vert_num, vbo);
+                    // Update the display
+                    vertices = update_vertices(vertices, vert_num, vbo);
+                }
 
                 break;
             }
         }
 
-        // Check camera movement keys in real-time
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))   // Forward
+        if (enable_camera_manip)
         {
-            camera_pos += camera_speed * camera_front;
-            camera_pos_changed = true;
-            std::cout << "Input: W\n";
-        }
+            // Check camera movement keys in real-time
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))   // Forward
+            {
+                camera_pos += camera_speed * camera_front;
+                camera_pos_changed = true;
+                std::cout << "Input: W\n";
+            }
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))   // Backwards
-        {
-            camera_pos -= camera_speed * camera_front;
-            camera_pos_changed = true;
-            std::cout << "Input: S\n";
-        }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))   // Backwards
+            {
+                camera_pos -= camera_speed * camera_front;
+                camera_pos_changed = true;
+                std::cout << "Input: S\n";
+            }
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))   // Rotation left
-        {
-            camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
-            camera_pos_changed = true;
-            std::cout << "Input: A\n";
-        }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))   // Rotation left
+            {
+                camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
+                camera_pos_changed = true;
+                std::cout << "Input: A\n";
+            }
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))   // Rotation right
-        {
-            camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
-            camera_pos_changed = true;
-            std::cout << "Input: D\n";
-        }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))   // Rotation right
+            {
+                camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
+                camera_pos_changed = true;
+                std::cout << "Input: D\n";
+            }
 
-        if (camera_pos_changed)
-        {
-            glm::mat4 view_matrix = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
-            GLint uniView = glGetUniformLocation(shader_program, "view_matrix");
-            glUniformMatrix4fv(uniView, 1, GL_FALSE, glm::value_ptr(view_matrix));
-            camera_pos_changed = false;
+            if (camera_pos_changed)
+            {
+                glm::mat4 view_matrix = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
+                GLint uniView = glGetUniformLocation(shader_program, "view_matrix");
+                glUniformMatrix4fv(uniView, 1, GL_FALSE, glm::value_ptr(view_matrix));
+                camera_pos_changed = false;
+            }
         }
 
         // Clear the screen to black
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Draw the shape
         glDrawArrays(used_primitive, 0, vert_num);
@@ -357,6 +429,10 @@ int main()
     // Create a rendering window with OpenGL context
     sf::Window window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT, 32), "OpenGL", sf::Style::Titlebar | sf::Style::Close, settings);
 
+    // Enabling Z-buffer
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
     // Initialize GLEW (must be done after creating the window and OpenGL context)
     glewExperimental = GL_TRUE;
     glewInit();
@@ -375,7 +451,11 @@ int main()
     GLfloat* vertices = new GLfloat[vert_num * DATA_PER_VERT];
 
     // Generate a polygon
-    find_polygon_verts(vertices, vert_num, 1.0f);
+    // find_polygon_verts(vertices, vert_num, 1.0f);
+
+    // Gnerate a cube
+    vert_num = 36;
+    vertices = cube_vertices;
     
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, vert_num * DATA_PER_VERT * sizeof(GLfloat), vertices, GL_STATIC_DRAW);
@@ -407,7 +487,7 @@ int main()
     glm::mat4 model_matrix = glm::mat4(1.0f);
     model_matrix = glm::rotate(model_matrix, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     glm::mat4 view_matrix = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 proj_matrix = glm::perspective(glm::radians(45.0f), 800.0f / 800.0f, 0.06f, 100.0f);
+    glm::mat4 proj_matrix = glm::perspective(glm::radians(45.0f), WINDOW_WIDTH / WINDOW_HEIGHT, 0.01f, 100.0f);
 
     // Link both shaders into a single shader program
     GLuint shader_program = glCreateProgram();
