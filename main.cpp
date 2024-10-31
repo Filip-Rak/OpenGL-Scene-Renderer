@@ -152,6 +152,13 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
     bool running = true;
     GLenum used_primitive = GL_TRIANGLES;
 
+    // Camera
+    glm::vec3 camera_pos = glm::vec3(0.0f, 0.0f, 3.0f);
+    glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 camera_up = glm::vec3(0.0f, 1.0f, 0.f);
+    float camera_speed = 0.001f;
+    bool camera_pos_changed = false;    // Remove if smothing is added
+
     while (running)
     {
         sf::Event window_event;
@@ -164,11 +171,14 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                 break;
 
             case sf::Event::KeyPressed:
+                // Exit condition
                 if (window_event.key.code == sf::Keyboard::Escape)
                 {
                     running = false;
-                }                
-                else if (window_event.key.code == sf::Keyboard::Up)
+                }
+
+                // Vertice number manipulation
+                if (window_event.key.code == sf::Keyboard::Up)
                 {
                     int new_vert_num = vert_num + 1;
                     if (new_vert_num > MAX_VERTS)
@@ -185,7 +195,8 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                     // Update the display
                     vertices = update_vertices(vertices, vert_num, vbo);
                 }
-                else if (window_event.key.code == sf::Keyboard::Down)
+
+                if (window_event.key.code == sf::Keyboard::Down)
                 {
                     int new_vert_num = vert_num - 1;
                     if (new_vert_num < MIN_VERTS)
@@ -202,8 +213,9 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                     // Update the display
                     vertices = update_vertices(vertices, vert_num, vbo);
                 }
-                // Check if numerical key has been pressed
-                else if (window_event.key.code >= sf::Keyboard::Num0 && window_event.key.code <= sf::Keyboard::Num9)
+
+                // Prototype manipulation
+                if (window_event.key.code >= sf::Keyboard::Num0 && window_event.key.code <= sf::Keyboard::Num9)
                 {
                     // Save numerical key as an integer
                     int pressed_number = window_event.key.code - sf::Keyboard::Num0;
@@ -228,6 +240,43 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
 
                 break;
             }
+        }
+
+        // Check camera movement keys in real-time
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))   // Forward
+        {
+            camera_pos += camera_speed * camera_front;
+            camera_pos_changed = true;
+            std::cout << "Input: W\n";
+        }
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))   // Backwards
+        {
+            camera_pos -= camera_speed * camera_front;
+            camera_pos_changed = true;
+            std::cout << "Input: S\n";
+        }
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))   // Rotation left
+        {
+            camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
+            camera_pos_changed = true;
+            std::cout << "Input: A\n";
+        }
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))   // Rotation right
+        {
+            camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
+            camera_pos_changed = true;
+            std::cout << "Input: D\n";
+        }
+
+        if (camera_pos_changed)
+        {
+            glm::mat4 view_matrix = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
+            GLint uniView = glGetUniformLocation(shader_program, "view_matrix");
+            glUniformMatrix4fv(uniView, 1, GL_FALSE, glm::value_ptr(view_matrix));
+            camera_pos_changed = false;
         }
 
         // Clear the screen to black
