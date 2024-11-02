@@ -216,6 +216,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
     glm::vec3 camera_pos = glm::vec3(0.0f, 0.0f, 3.0f);
     glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 camera_up = glm::vec3(0.0f, 1.0f, 0.f);
+    float camera_yaw = 0;
     float camera_speed = 0.001f;
     bool camera_pos_changed = false;    // Remove if smothing is added
 
@@ -328,23 +329,40 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                 std::cout << "Input: S\n";
             }
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))   // Rotation left
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))   // Move left
             {
                 camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
                 camera_pos_changed = true;
-                std::cout << "Input: A\n";
+                std::cout << "Input: Q\n";
             }
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))   // Rotation right
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))   // Move right
             {
                 camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
                 camera_pos_changed = true;
-                std::cout << "Input: D\n";
+                std::cout << "Input: E\n";
             }
 
-            if (camera_pos_changed)
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))   // Rotation left
+            {
+                camera_yaw -= camera_speed;
+                camera_pos_changed = true;
+                std::cout << "Input: Q\n";
+            }
+
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::E))   // Rotation right
+            {
+                camera_yaw += camera_speed;
+                camera_pos_changed = true;
+                std::cout << "Input: E\n";
+            }
+
+            if (camera_pos_changed) // Remove check for smoothing
             {
                 glm::mat4 view_matrix = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
+                camera_front.x = sin(camera_yaw);
+                camera_front.z = -cos(camera_yaw);
+
                 GLint uniView = glGetUniformLocation(shader_program, "view_matrix");
                 glUniformMatrix4fv(uniView, 1, GL_FALSE, glm::value_ptr(view_matrix));
                 camera_pos_changed = false;
