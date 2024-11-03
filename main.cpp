@@ -218,7 +218,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
     glm::vec3 camera_up = glm::vec3(0.0f, 1.0f, 0.f);
     float camera_yaw = 0;
     float camera_speed = 0.001f;
-    bool camera_pos_changed = false;    // Remove if smothing is added
+    bool camera_pos_changed = false;    // Remove for damping inclusion
 
     while (running)
     {
@@ -333,14 +333,14 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
             {
                 camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
                 camera_pos_changed = true;
-                std::cout << "Input: Q\n";
+                std::cout << "Input: A\n";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))   // Move right
             {
                 camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
                 camera_pos_changed = true;
-                std::cout << "Input: E\n";
+                std::cout << "Input: D\n";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))   // Rotation left
@@ -357,7 +357,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                 std::cout << "Input: E\n";
             }
 
-            if (camera_pos_changed) // Remove check for smoothing
+            if (camera_pos_changed) // Remove check for damping inclusion
             {
                 glm::mat4 view_matrix = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
                 camera_front.x = sin(camera_yaw);
