@@ -17,7 +17,7 @@
 // Flags
 const bool enable_camera_manip = true;
 const bool enable_vert_manip = false;
-const bool enable_primitve_manip = false;
+const bool enable_primitve_manip = true;
 
 // Primitives
 const int primitives_num = 10;
@@ -218,7 +218,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
     glm::vec3 camera_up = glm::vec3(0.0f, 1.0f, 0.f);
     float camera_yaw = 0;
     float camera_speed = 0.001f;
-    bool camera_pos_changed = false;    // Remove for damping inclusion
+    bool camera_pos_changed = false;    // Remove for damping implementation
 
     while (running)
     {
@@ -297,7 +297,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                 {
                     // Convert mouse pos to vertices
                     int new_vert_num = mouse_to_verts(window_event.mouseMove.y);
-                    if (new_vert_num == vert_num)   // Avoid updates if unneccessary
+                    if (new_vert_num == vert_num)   // Avoid updates if unnecessary
                         break;
 
                     // Update vert number
@@ -357,7 +357,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                 std::cout << "Input: E\n";
             }
 
-            if (camera_pos_changed) // Remove check for damping inclusion
+            if (camera_pos_changed) // Remove check for damping implementation
             {
                 glm::mat4 view_matrix = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
                 camera_front.x = sin(camera_yaw);
@@ -471,7 +471,7 @@ int main()
     // Generate a polygon
     // find_polygon_verts(vertices, vert_num, 1.0f);
 
-    // Gnerate a cube
+    // Generate a cube
     vert_num = 36;
     vertices = cube_vertices;
     
