@@ -514,7 +514,7 @@ int main()
     glBindFragDataLocation(shader_program, 0, "outColor");  // Bind fragment output
     glLinkProgram(shader_program);
 
-    // Use the program if linking succeded
+    // Use the program if linking succeeded
     if (program_linked(shader_program, true, "Shader"))
     {
         // Debug info
