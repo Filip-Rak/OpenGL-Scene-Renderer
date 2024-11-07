@@ -4,12 +4,14 @@
 #pragma once
 #include <GL/glew.h>
 #include <SFML/Window.hpp>
-#include <iostream>
-#include <time.h>
-#include <cmath>
+#include <SFML/System/Time.hpp>
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 #include <gtc/type_ptr.hpp>
+#include <iostream>
+#include <time.h>
+#include <string.h>
+#include <cmath>
 
 // Constants
 // --------------------
@@ -18,6 +20,7 @@
 const bool enable_camera_manip = true;
 const bool enable_vert_manip = false;
 const bool enable_primitve_manip = true;
+const bool enable_mouse_movement = true;
 
 // Primitives
 const int primitives_num = 10;
@@ -55,7 +58,16 @@ const float WINDOW_WIDTH = 800.0;
 const float WINDOW_HEIGHT = 600.0;
 const int MIN_VERTS = 1;
 const int MAX_VERTS = 36;
-const std::string separator = std::string(45, '-') + "\n";
+
+// Camera
+const float MAX_CAMERA_PITCH = 89;
+const float MIN_CAMERA_PITCH = -89;
+const float MAX_CAMERA_YAW = 360;
+const float MIN_CAMERA_YAW = 0;
+
+// Strings
+const std::string WINDOW_TITLE = "OpenGL";
+const std::string SEPARATOR = std::string(45, '-') + "\n";
 
 // Shaders
 // --------------------
@@ -207,6 +219,24 @@ GLfloat* update_vertices(GLfloat* vertices, int vert_num, GLuint vbo)
     return vertices;
 }
 
+void update_view_matrix(GLuint shader_program, const glm::vec3& camera_pos, glm::vec3& camera_front, const glm::vec3& camera_up, float camera_yaw, float camera_pitch)
+{
+    // Get camera front based on yaw and pitch
+    glm::vec3 new_front;
+    new_front.x = cos(glm::radians(camera_yaw)) * cos(glm::radians(camera_pitch));
+    new_front.y = sin(glm::radians(camera_pitch));
+    new_front.z = sin(glm::radians(camera_yaw)) * cos(glm::radians(camera_pitch));
+
+    // Update camera front and normalize it
+    camera_front = glm::normalize(new_front);
+
+    // Update the view matrix
+    glm::mat4 view_matrix = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
+    GLint uni_view = glGetUniformLocation(shader_program, "view_matrix");
+    glUniformMatrix4fv(uni_view, 1, GL_FALSE, glm::value_ptr(view_matrix));
+}
+
+
 void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo, int vert_num, GLfloat* vertices)
 {
     bool running = true;
@@ -216,12 +246,37 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
     glm::vec3 camera_pos = glm::vec3(0.0f, 0.0f, 3.0f);
     glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 camera_up = glm::vec3(0.0f, 1.0f, 0.f);
-    float camera_yaw = 0;
-    float camera_speed = 0.001f;
+    float camera_yaw = 270;
+    float camera_pitch = 0;
+    float camera_speed = 3;
+    float camera_rotation_speed = 200;
     bool camera_pos_changed = false;    // Remove for damping implementation
+
+    // Mouse
+    double mouse_sensitivity = 0.05;
+
+    // Delta time
+    sf::Clock delta_clock;
+    float delta_time = 0;
+    float update_interval = 0.2;    // Timer for FPS update
+    float time_to_update = 0;
 
     while (running)
     {
+        // Update delta time
+        delta_time = delta_clock.restart().asSeconds();
+
+        // Set the window title to current FPS
+        time_to_update -= delta_time;
+        if (time_to_update < 0)
+        {
+            int FPS = floor(1.0 / delta_time);
+            window.setTitle(WINDOW_TITLE + " - FPS: " + std::to_string(FPS));
+
+            // Reset the times
+            time_to_update = update_interval;
+        }
+
         sf::Event window_event;
         while (window.pollEvent(window_event))
         {
@@ -308,6 +363,33 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                     vertices = update_vertices(vertices, vert_num, vbo);
                 }
 
+                if (enable_mouse_movement)
+                {
+                    // Get the current mouse position and calculate the offset from the center
+                    sf::Vector2i center_pos(window.getSize().x / 2, window.getSize().y / 2);
+                    sf::Vector2i local_pos = sf::Mouse::getPosition(window);
+                    double x_offset = local_pos.x - center_pos.x;
+                    double y_offset = local_pos.y - center_pos.y;
+
+                    // Apply the offset to yaw and pitch
+                    camera_yaw += x_offset * mouse_sensitivity;
+                    camera_pitch -= y_offset * mouse_sensitivity;
+
+                    // Clamp pitch to prevent flipping
+                    if (camera_pitch > MAX_CAMERA_PITCH) camera_pitch = MAX_CAMERA_PITCH;
+                    else if (camera_pitch < MIN_CAMERA_PITCH) camera_pitch = MIN_CAMERA_PITCH;
+
+                    // Normalize yaw
+                    if (camera_yaw >= MAX_CAMERA_YAW) camera_yaw -= MAX_CAMERA_YAW;
+                    else if (camera_yaw < MIN_CAMERA_YAW) camera_yaw += MIN_CAMERA_YAW;
+
+                    // Set the flag to update view matrix
+                    camera_pos_changed = true;
+
+                    // Reset mouse position to the center of the window
+                    sf::Mouse::setPosition(center_pos, window);
+                }
+
                 break;
             }
         }
@@ -317,56 +399,51 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
             // Check camera movement keys in real-time
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))   // Forward
             {
-                camera_pos += camera_speed * camera_front;
+                camera_pos += camera_speed * delta_time * camera_front;
                 camera_pos_changed = true;
                 std::cout << "Input: W\n";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))   // Backwards
             {
-                camera_pos -= camera_speed * camera_front;
+                camera_pos -= camera_speed * delta_time * camera_front;
                 camera_pos_changed = true;
                 std::cout << "Input: S\n";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))   // Move left
             {
-                camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
+                camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed * delta_time;
                 camera_pos_changed = true;
                 std::cout << "Input: A\n";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))   // Move right
             {
-                camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
+                camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed * delta_time;
                 camera_pos_changed = true;
                 std::cout << "Input: D\n";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))   // Rotation left
             {
-                camera_yaw -= camera_speed;
+                camera_yaw -= camera_rotation_speed * delta_time;
                 camera_pos_changed = true;
                 std::cout << "Input: Q\n";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::E))   // Rotation right
             {
-                camera_yaw += camera_speed;
+                camera_yaw += camera_rotation_speed * delta_time;
                 camera_pos_changed = true;
                 std::cout << "Input: E\n";
             }
+        }
 
-            if (camera_pos_changed) // Remove check for damping implementation
-            {
-                glm::mat4 view_matrix = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
-                camera_front.x = sin(camera_yaw);
-                camera_front.z = -cos(camera_yaw);
-
-                GLint uniView = glGetUniformLocation(shader_program, "view_matrix");
-                glUniformMatrix4fv(uniView, 1, GL_FALSE, glm::value_ptr(view_matrix));
-                camera_pos_changed = false;
-            }
+        if (camera_pos_changed)
+        {
+            update_view_matrix(shader_program, camera_pos, camera_front, camera_up, camera_yaw, camera_pitch);
+            camera_pos_changed = false;
         }
 
         // Clear the screen to black
@@ -445,7 +522,12 @@ int main()
     settings.stencilBits = 8;    // Bits for stencil buffer
 
     // Create a rendering window with OpenGL context
-    sf::Window window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT, 32), "OpenGL", sf::Style::Titlebar | sf::Style::Close, settings);
+    sf::Window window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT, 32), WINDOW_TITLE, sf::Style::Titlebar | sf::Style::Close, settings);
+
+    window.setMouseCursorGrabbed(true);
+    window.setMouseCursorVisible(false);
+
+    // window.setFramerateLimit(20);
 
     // Enabling Z-buffer
     glEnable(GL_DEPTH_TEST);
@@ -518,10 +600,10 @@ int main()
     if (program_linked(shader_program, true, "Shader"))
     {
         // Debug info
-        std::cout << separator;
+        std::cout << SEPARATOR;
         std::cout << "Version:\t" << glGetString(GL_VERSION) << "\n";
         std::cout << "Running on:\t" << glGetString(GL_RENDERER) << "\n";
-        std::cout << separator;
+        std::cout << SEPARATOR;
 
         // Use the program
         glUseProgram(shader_program);
