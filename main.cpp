@@ -17,10 +17,10 @@
 // --------------------
 
 // Flags
-const bool enable_camera_manip = true;
+const bool enable_keyboard_movement = true;
+const bool enable_mouse_movement = true;
 const bool enable_vert_manip = false;
 const bool enable_primitve_manip = true;
-const bool enable_mouse_movement = true;
 
 // Primitives
 const int primitives_num = 10;
@@ -259,22 +259,28 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
     sf::Clock delta_clock;
     float delta_time = 0;
     float update_interval = 0.2;    // Timer for FPS update
-    float time_to_update = 0;
+    float time_accumulator = 0; // Time passed since last FPS update
+    int frame_count = 0;
 
     while (running)
     {
         // Update delta time
         delta_time = delta_clock.restart().asSeconds();
 
+        // Accumulate time and count frames
+        time_accumulator += delta_time;
+        frame_count++;
+
         // Set the window title to current FPS
-        time_to_update -= delta_time;
-        if (time_to_update < 0)
+        if (time_accumulator >= update_interval)
         {
-            int FPS = floor(1.0 / delta_time);
+            // Get FPS from average time passed since last update
+            int FPS = round(frame_count / time_accumulator);
             window.setTitle(WINDOW_TITLE + " - FPS: " + std::to_string(FPS));
 
-            // Reset the times
-            time_to_update = update_interval;
+            // Reset for next FPS update
+            time_accumulator = 0;
+            frame_count = 0;
         }
 
         sf::Event window_event;
@@ -394,7 +400,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
             }
         }
 
-        if (enable_camera_manip)
+        if (enable_keyboard_movement)
         {
             // Check camera movement keys in real-time
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))   // Forward
