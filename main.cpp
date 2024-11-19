@@ -13,6 +13,10 @@
 #include <string.h>
 #include <cmath>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+
 // Constants
 // --------------------
 
@@ -52,7 +56,9 @@ const std::string primitives_names[primitives_num] =
     "GL_POLYGON",       // 9
 };
 
-const int DATA_PER_VERT = 6;
+const int DATA_PER_VERT = 8;
+const int OFFSET_TO_TEX = 6;
+const int TEX_COORDS = 2;
 const double PI = 3.14159265358979323846;
 const float WINDOW_WIDTH = 800.0;
 const float WINDOW_HEIGHT = 600.0;
@@ -69,6 +75,10 @@ const float MIN_CAMERA_YAW = 0;
 const std::string WINDOW_TITLE = "OpenGL";
 const std::string SEPARATOR = std::string(45, '-') + "\n";
 
+// File paths
+const std::string ASSETS_PATH = "assets/";
+const std::string TEXTURES_PATH = ASSETS_PATH + "textures/";
+
 // Shaders
 // --------------------
 
@@ -78,6 +88,8 @@ const GLchar* vertex_source = R"glsl(
 
 in vec3 position; // Input vertex position
 in vec3 color;     // Input vertex color
+in vec2 in_tex_coord;   // Input texture coord
+out vec2 tex_coord;   // Input texture coord
 out vec3 Color;    // Output color passed to the fragment shader
 
 // Set outside the shader
@@ -90,6 +102,9 @@ void main()
     // Pass the color to the fragment shader
     Color = color;  
 
+    // Pass the texture coord
+    tex_coord = in_tex_coord;
+
     // Set the position of the vertex
     gl_Position = proj_matrix * view_matrix * model_matrix * vec4(position, 1.0);
 }
@@ -98,12 +113,18 @@ void main()
 // Fragment shader's job is to figure out area between surfaces
 const GLchar* fragment_source = R"glsl(
 #version 150 core
+uniform sampler2D texture1;
 in vec3 Color;      // Color received from the vertex shader
+in vec2 tex_coord;  // Texture coord received from vertex shader
 out vec4 outColor;   // Output color to the framebuffer
 
 void main() 
 {
-    outColor = vec4(Color, 1.0);  // Set the fragment color with full opacity
+    // outColor = vec4(Color, 1.0);  // Set the fragment color with full opacity
+    outColor = texture(texture1, tex_coord);
+    // outColor = tex_color;
+    // outColor = vec4(1.0, 0.0, 0.0, 1.0); // Full red
+    // outColor = vec4(tex_coord, 0.0, 1.0); // Map u, v to red and green
 }
 )glsl";
 
@@ -112,52 +133,53 @@ void main()
 GLfloat cube_vertices[] =
 {
     // Front
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
-    0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
-    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
-    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+    // x, y, z  r, g, b    u,v
+    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,  0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,    1.0f, 1.0f,
+    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,    1.0f, 1.0f,
+    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,   0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,  0.0f, 0.0f,
 
     // Rear
-    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
-    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-    0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,
-    0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,
-    -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,    1.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,     1.0f, 1.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,     1.0f, 1.0f,
+    -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,    0.0f, 1.0f,
+    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
 
     // Left
-    -0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-    -0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
-    -0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+    -0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,    0.0f, 0.0f,
+    -0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  1.0f, 1.0f,
+    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
+    -0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,    0.0f, 0.0f,
 
     // Right
-    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
-    0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-    0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-    0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
-    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,     0.0f, 0.0f,
+    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,    1.0f, 0.0f,
+    0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
+    0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
+    0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,    0.0f, 1.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,     0.0f, 0.0f,
 
     // Bottom
-    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-    0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
-    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,    1.0f, 1.0f,
+    0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,    1.0f, 1.0f,
+    -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
 
     // Top
-    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
-    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
-    -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
-    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f
+    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
+    0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,    1.0f, 0.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,     1.0f, 1.0f,
+    0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,     1.0f, 1.0f,
+    -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f,    0.0f, 1.0f,
+    -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,   0.0f, 0.0f
 };
 
 // Main loop functions
@@ -402,48 +424,53 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
 
         if (enable_keyboard_movement)
         {
+            std::string input = "";
+
             // Check camera movement keys in real-time
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))   // Forward
             {
                 camera_pos += camera_speed * delta_time * camera_front;
                 camera_pos_changed = true;
-                std::cout << "Input: W\n";
+                input += "W";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))   // Backwards
             {
                 camera_pos -= camera_speed * delta_time * camera_front;
                 camera_pos_changed = true;
-                std::cout << "Input: S\n";
+                input += "S";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))   // Move left
             {
                 camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed * delta_time;
                 camera_pos_changed = true;
-                std::cout << "Input: A\n";
+                input += "A";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))   // Move right
             {
                 camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed * delta_time;
                 camera_pos_changed = true;
-                std::cout << "Input: D\n";
+                input += "D";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))   // Rotation left
             {
                 camera_yaw -= camera_rotation_speed * delta_time;
                 camera_pos_changed = true;
-                std::cout << "Input: Q\n";
+                input += "Q";
             }
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::E))   // Rotation right
             {
                 camera_yaw += camera_rotation_speed * delta_time;
                 camera_pos_changed = true;
-                std::cout << "Input: E\n";
+                input += "E";
             }
+
+            // if (input.size() > 0)
+               // std::cout << "Input: " << input << "\n";
         }
 
         if (camera_pos_changed)
@@ -623,6 +650,14 @@ int main()
 
         GLint uni_proj = glGetUniformLocation(shader_program, "proj_matrix");
         glUniformMatrix4fv(uni_proj, 1, GL_FALSE, glm::value_ptr(proj_matrix));       
+
+        GLint texture_location = glGetUniformLocation(shader_program, "texture1");
+        glUniform1i(texture_location, 0); // Bind texture unit 0 to "texture1"
+
+        // Add the texutre
+        GLint tex_coord = glGetAttribLocation(shader_program, "in_tex_coord");
+        glEnableVertexAttribArray(tex_coord);
+        glVertexAttribPointer(tex_coord, TEX_COORDS, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), (void*)(OFFSET_TO_TEX * sizeof(GLfloat)));
     }
     else
     {
@@ -646,6 +681,40 @@ int main()
     GLint col_attrib = glGetAttribLocation(shader_program, "color");
     glEnableVertexAttribArray(col_attrib);
     glVertexAttribPointer(col_attrib, 3, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+
+    // Create textures
+    unsigned int texture1;  // ID
+    glGenTextures(1, &texture1);    // Generation
+    glBindTexture(GL_TEXTURE_2D, texture1); // Binding
+
+    // Setting texture parameters
+    // Wrap-around
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);   // X axis
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);   // Y axis
+
+    // Filtering
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);   // When texture is downsized
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);   // When texture is magnifieid
+
+    int texture_width, texture_height, texture_channels;
+
+    // Flip image on y-axis on load
+    stbi_set_flip_vertically_on_load(true);
+
+    // Load the texture
+    std::string file_path = TEXTURES_PATH + "obanma.jpeg";
+    unsigned char* data = stbi_load(file_path.c_str(), &texture_width, &texture_height, &texture_channels, STBI_rgb);
+    if (data)
+    {
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texture_width, texture_height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+        std::cout << "Failed to load texture!\n";
+
+    stbi_image_free(data);
+
 
     // Main event loop
     main_loop(window, shader_program, vao, vbo, vert_num, vertices);
