@@ -682,7 +682,7 @@ int main()
     glEnableVertexAttribArray(col_attrib);
     glVertexAttribPointer(col_attrib, 3, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
 
-    // Create textures
+    // Create texture
     unsigned int texture1;  // ID
     glGenTextures(1, &texture1);    // Generation
     glBindTexture(GL_TEXTURE_2D, texture1); // Binding
