@@ -411,7 +411,7 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
 
     // Light
     glm::vec3 LIGHT_POS = glm::vec3(0.0f, 1.5f, 0.0f); // Light position above the cube
-    glm::vec3 LIGHT_DIR = glm::vec3(0.0f, -1.0f, -1.0f); // Light direction
+    glm::vec3 LIGHT_DIR = glm::vec3(0.0f, -1.0f, -.8f); // Light direction
     glm::vec3 LIGHT_COLOR = glm::vec3(1.0f, 1.0f, 1.0f); // Light color (white)
     glm::vec3 CAMERA_POS = glm::vec3(0.0f, 0.0f, 3.0f);  // Camera position
     int light_type = LightType::Point; // Default to directional light
