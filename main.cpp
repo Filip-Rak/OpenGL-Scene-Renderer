@@ -58,7 +58,9 @@ const std::string primitives_names[primitives_num] =
 
 const int DATA_PER_VERT = 8;
 const int OFFSET_TO_TEX = 6;
+const int OFFSET_TO_NORMAL = 3;
 const int TEX_COORDS = 2;
+const int NORMAL_COORDS = 3;
 const double PI = 3.14159265358979323846;
 const float WINDOW_WIDTH = 800.0;
 const float WINDOW_HEIGHT = 600.0;
@@ -89,6 +91,10 @@ const GLchar* vertex_source = R"glsl(
 in vec3 position; // Input vertex position
 in vec3 color;     // Input vertex color
 in vec2 in_tex_coord;   // Input texture coord
+in vec3 a_normal;
+
+out vec3 frag_pos;
+out vec3 normal;
 out vec2 tex_coord;   // Input texture coord
 out vec3 Color;    // Output color passed to the fragment shader
 
@@ -105,6 +111,12 @@ void main()
     // Pass the texture coord
     tex_coord = in_tex_coord;
 
+    // Pass normals
+    normal = a_normal;
+
+    // Pass fragment position
+    frag_pos = vec3(model_matrix * vec4(position, 1.0));
+
     // Set the position of the vertex
     gl_Position = proj_matrix * view_matrix * model_matrix * vec4(position, 1.0);
 }
@@ -113,18 +125,40 @@ void main()
 // Fragment shader's job is to figure out area between surfaces
 const GLchar* fragment_source = R"glsl(
 #version 150 core
+
 uniform sampler2D texture1;
+uniform vec3 light_pos;
+uniform float light_intensity;
+uniform bool light_enabled;
+
+
+in vec3 normal;
+in vec3 frag_pos;
 in vec3 Color;      // Color received from the vertex shader
 in vec2 tex_coord;  // Texture coord received from vertex shader
 out vec4 outColor;   // Output color to the framebuffer
 
 void main() 
 {
-    // outColor = vec4(Color, 1.0);  // Set the fragment color with full opacity
-    outColor = texture(texture1, tex_coord);
-    // outColor = tex_color;
-    // outColor = vec4(1.0, 0.0, 0.0, 1.0); // Full red
-    // outColor = vec4(tex_coord, 0.0, 1.0); // Map u, v to red and green
+    if (!light_enabled)
+    {
+        outColor = vec4(0.0);
+        return;
+    }
+
+    float ambient_strength = 0.1 * light_intensity;
+    vec3 ambient_light_color = vec3(1.0, 1.0, 1.0);
+    vec4 ambient = ambient_strength * vec4(ambient_light_color, 1.0);
+    vec3 diff_light_color = vec3(1.0, 1.0, 1.0);
+
+    vec3 norm = normalize(normal);
+    vec3 light_dir = normalize(light_pos - frag_pos);
+
+    float diff = max(dot(norm, light_dir), 0.0);
+    vec3 diffuse = diff * diff_light_color * light_intensity;
+
+    outColor = (ambient + vec4(diffuse, 1.0)) * texture(texture1, tex_coord);
+    // outColor = texture(texture1, tex_coord);
 }
 )glsl";
 
@@ -133,54 +167,64 @@ void main()
 GLfloat cube_vertices[] =
 {
     // Front
-    // x, y, z  r, g, b    u,v
-    -0.5f, -0.5f, -0.5f,    0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
-    0.5f, -0.5f, -0.5f,     1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
-    0.5f, 0.5f, -0.5f,      1.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-    0.5f, 0.5f, -0.5f,      1.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-    -0.5f, 0.5f, -0.5f,     0.0f, 1.0f, 0.0f,   0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,    0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+    // x, y, z              nx, ny, nz          u,v             
+    -0.5f, -0.5f, -0.5f,    0.0f, 0.0f, -1.0f,  0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f,     0.0f, 0.0f, -1.0f,  1.0f, 0.0f,
+    0.5f, 0.5f, -0.5f,      0.0f, 0.0f, -1.0f,  1.0f, 1.0f,
+    0.5f, 0.5f, -0.5f,      0.0f, 0.0f, -1.0f,  1.0f, 1.0f,
+    -0.5f, 0.5f, -0.5f,     0.0f, 0.0f, -1.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f, 0.0f, -1.0f,  0.0f, 0.0f,
 
     // Rear
-    -0.5f, -0.5f, 0.5f,     0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
-    0.5f, -0.5f, 0.5f,      1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
-    0.5f, 0.5f, 0.5f,       1.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-    0.5f, 0.5f, 0.5f,       1.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-    -0.5f, 0.5f, 0.5f,      0.0f, 1.0f, 0.0f,   0.0f, 1.0f,
-    -0.5f, -0.5f, 0.5f,     0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+    // x, y, z              nx, ny, nz          u,v             
+    -0.5f, -0.5f, 0.5f,     0.0f, 0.0f, 1.0f,   0.0f, 0.0f,
+    0.5f, -0.5f, 0.5f,      0.0f, 0.0f, 1.0f,   1.0f, 0.0f,
+    0.5f, 0.5f, 0.5f,       0.0f, 0.0f, 1.0f,   1.0f, 1.0f,
+    0.5f, 0.5f, 0.5f,       0.0f, 0.0f, 1.0f,   1.0f, 1.0f,
+    -0.5f, 0.5f, 0.5f,      0.0f, 0.0f, 1.0f,   0.0f, 1.0f,
+    -0.5f, -0.5f, 0.5f,     0.0f, 0.0f, 1.0f,   0.0f, 0.0f,
 
     // Left
-    -0.5f, 0.5f, 0.5f,      1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
-    -0.5f, 0.5f, -0.5f,     1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f,    0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,    0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-    -0.5f, -0.5f, 0.5f,     0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
-    -0.5f, 0.5f, 0.5f,      1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+    // x, y, z              nx, ny, nz          u,v             
+    -0.5f, 0.5f, 0.5f,      -1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+    -0.5f, 0.5f, -0.5f,     -1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,    -1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    -1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+    -0.5f, -0.5f, 0.5f,     -1.0f, 0.0f, 0.0f,   0.0f, 1.0f,
+    -0.5f, 0.5f, 0.5f,      -1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
 
     // Right
+    // x, y, z              nx, ny, nz          u,v             
     0.5f, 0.5f, 0.5f,       1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
-    0.5f, 0.5f, -0.5f,      1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
-    0.5f, -0.5f, -0.5f,     0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-    0.5f, -0.5f, -0.5f,     0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-    0.5f, -0.5f, 0.5f,      0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
+    0.5f, 0.5f, -0.5f,      1.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+    0.5f, -0.5f, -0.5f,     1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+    0.5f, -0.5f, -0.5f,     1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+    0.5f, -0.5f, 0.5f,      1.0f, 0.0f, 0.0f,   0.0f, 1.0f,
     0.5f, 0.5f, 0.5f,       1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
 
     // Bottom
-    -0.5f, -0.5f, -0.5f,    0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
-    0.5f, -0.5f, -0.5f,     1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
-    0.5f, -0.5f, 0.5f,      1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
-    0.5f, -0.5f, 0.5f,      1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
-    -0.5f, -0.5f, 0.5f,     0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,    0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
+    // x, y, z              nx, ny, nz          u,v             
+    -0.5f, -0.5f, -0.5f,    0.0f, -1.0f, 0.0f,   0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f,     0.0f, -1.0f, 0.0f,   1.0f, 0.0f,
+    0.5f, -0.5f, 0.5f,      0.0f, -1.0f, 0.0f,   1.0f, 1.0f,
+    0.5f, -0.5f, 0.5f,      0.0f, -1.0f, 0.0f,   1.0f, 1.0f,
+    -0.5f, -0.5f, 0.5f,     0.0f, -1.0f, 0.0f,   0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f, -1.0f, 0.0f,   0.0f, 0.0f,
 
     // Top
-    -0.5f, 0.5f, -0.5f,     0.0f, 1.0f, 0.0f,   0.0f, 0.0f,
-    0.5f, 0.5f, -0.5f,      1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
-    0.5f, 0.5f, 0.5f,       1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
-    0.5f, 0.5f, 0.5f,       1.0f, 0.0f, 0.0f,   1.0f, 1.0f,
-    -0.5f, 0.5f, 0.5f,      0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
-    -0.5f, 0.5f, -0.5f,     0.0f, 1.0f, 0.0f,   0.0f, 0.0f
+    // x, y, z              nx, ny, nz          u,v             
+    -0.5f, 0.5f, -0.5f,     0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+    0.5f, 0.5f, -0.5f,      0.0f, 1.0f, 0.0f,  1.0f, 0.0f,
+    0.5f, 0.5f, 0.5f,       0.0f, 1.0f, 0.0f,  1.0f, 1.0f,
+    0.5f, 0.5f, 0.5f,       0.0f, 1.0f, 0.0f,  1.0f, 1.0f,
+    -0.5f, 0.5f, 0.5f,      0.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+    -0.5f, 0.5f, -0.5f,     0.0f, 1.0f, 0.0f,  0.0f, 0.0f
 };
+
+// Light globals
+float light_intensity = 1.0f;
+bool light_enabled = true;
+glm::vec3 LIGHT_POS = glm::vec3(1.0f, 1.5f, 2.0f);
 
 // Main loop functions
 // --------------------
@@ -257,7 +301,6 @@ void update_view_matrix(GLuint shader_program, const glm::vec3& camera_pos, glm:
     GLint uni_view = glGetUniformLocation(shader_program, "view_matrix");
     glUniformMatrix4fv(uni_view, 1, GL_FALSE, glm::value_ptr(view_matrix));
 }
-
 
 void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo, int vert_num, GLfloat* vertices)
 {
@@ -373,6 +416,24 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                     }
                 }
 
+                if (window_event.key.code == sf::Keyboard::Up) 
+                {
+                    light_intensity += 0.1f;
+                    if (light_intensity > 2.0f) light_intensity = 2.0f;
+                    std::cout << "Light intensity: " << light_intensity << "\n";
+                }
+                else if (window_event.key.code == sf::Keyboard::Down) 
+                {
+                    light_intensity -= 0.1f;
+                    if (light_intensity < 0.0f) light_intensity = 0.0f;
+                    std::cout << "Light intensity: " << light_intensity << "\n";
+                }
+                else if (window_event.key.code == sf::Keyboard::F) 
+                {
+                    light_enabled = !light_enabled;
+                    std::cout << "Light enabled: " << (light_enabled ? "ON" : "OFF") << "\n";
+                }
+
                 break;
             case sf::Event::MouseMoved:
 
@@ -478,6 +539,13 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
             update_view_matrix(shader_program, camera_pos, camera_front, camera_up, camera_yaw, camera_pitch);
             camera_pos_changed = false;
         }
+
+        // Update uniforms
+        GLint light_intensity_loc = glGetUniformLocation(shader_program, "light_intensity");
+        glUniform1f(light_intensity_loc, light_intensity);
+
+        GLint light_enabled_loc = glGetUniformLocation(shader_program, "light_enabled");
+        glUniform1i(light_enabled_loc, light_enabled);
 
         // Clear the screen to black
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -658,6 +726,20 @@ int main()
         GLint tex_coord = glGetAttribLocation(shader_program, "in_tex_coord");
         glEnableVertexAttribArray(tex_coord);
         glVertexAttribPointer(tex_coord, TEX_COORDS, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), (void*)(OFFSET_TO_TEX * sizeof(GLfloat)));
+
+        // Add light
+        GLint normal_attrib = glGetAttribLocation(shader_program, "a_normal");
+        glEnableVertexAttribArray(normal_attrib);
+        glVertexAttribPointer(normal_attrib, NORMAL_COORDS, GL_FLOAT, GL_FALSE, DATA_PER_VERT * sizeof(GLfloat), (void*)(sizeof(GLfloat) * OFFSET_TO_NORMAL));
+
+        GLint uni_light_pos = glGetUniformLocation(shader_program, "light_pos");
+        glUniform3fv(uni_light_pos, 1, &LIGHT_POS[0]);
+
+        GLint light_intensity_loc = glGetUniformLocation(shader_program, "light_intensity");
+        glUniform1f(light_intensity_loc, light_intensity);
+
+        GLint light_enabled_loc = glGetUniformLocation(shader_program, "light_enabled");
+        glUniform1i(light_enabled_loc, light_enabled);
     }
     else
     {
