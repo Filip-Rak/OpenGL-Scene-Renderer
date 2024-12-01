@@ -126,41 +126,115 @@ void main()
 const GLchar* fragment_source = R"glsl(
 #version 150 core
 
+// Texture sampler
 uniform sampler2D texture1;
-uniform vec3 light_pos;
-uniform float light_intensity;
-uniform bool light_enabled;
 
+// Lighting parameters
+uniform vec3 light_pos;         // Light position for point and spotlight
+uniform vec3 light_dir;         // Light direction for directional and spotlight
+uniform vec3 light_color;       // Light color
+uniform vec3 view_pos;          // Camera/view position
+uniform float light_intensity;  // Light intensity
+uniform bool light_enabled;     // Enable/disable light
+uniform int light_type;         // 0 = Directional, 1 = Point, 2 = Spotlight
+uniform float light_cut_off;    // Spotlight inner cutoff (cosine of angle)
+uniform float light_outer_cut_off; // Spotlight outer cutoff (cosine of angle)
 
-in vec3 normal;
-in vec3 frag_pos;
-in vec3 Color;      // Color received from the vertex shader
-in vec2 tex_coord;  // Texture coord received from vertex shader
-out vec4 outColor;   // Output color to the framebuffer
+// Inputs from the vertex shader
+in vec3 normal;                 // Interpolated normal
+in vec3 frag_pos;               // Fragment position in world space
+in vec3 Color;                  // Color received from the vertex shader
+in vec2 tex_coord;              // Texture coordinates received from vertex shader
+
+// Output to the framebuffer
+out vec4 outColor;
 
 void main() 
-{
+{   
+    vec3 norm = normalize(normal); // Normalize the normal vector
+    
+    vec3 light_dir_calc;
+    float attenuation = 1.0;
+
+    // If lighting is disabled, output black
     if (!light_enabled)
     {
         outColor = vec4(0.0);
         return;
     }
+    
+    // Directional light
+    if (light_type == 0)
+    {
+        light_dir_calc = normalize(-light_dir);
+    }
 
+    // Point light and spotlight
+    else if (light_type == 1 || light_type == 2) 
+    {
+        light_dir_calc = normalize(light_pos - frag_pos);
+
+        // Calculate attenuation based on distance
+        float distance = length(light_pos - frag_pos);
+        attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * (distance * distance));
+
+        if (light_type == 2) 
+        {
+            // Spotlight calculations
+            float theta = dot(light_dir_calc, normalize(-light_dir));
+
+            // Spotlight only affects fragments within the cone
+            if (theta > light_cut_off) 
+            {
+                float epsilon = light_cut_off - light_outer_cut_off;
+                float intensity = clamp((theta - light_outer_cut_off) / epsilon, 0.0, 1.0);
+                attenuation *= intensity;
+            } 
+            else 
+            {
+                attenuation = 0.0; // Disable light outside the cone
+            }
+        }
+    }
+
+    if (dot(norm, light_dir_calc) < 0.0) 
+    {
+        norm = -norm; // Reverse the normal
+    }
+
+    // ** Visualization for the light position **
+    float light_marker_distance = length(light_pos - frag_pos);
+    if (light_marker_distance < 0.1) // Small radius for light marker
+    {
+        outColor = vec4(1.0, 1.0, 0.0, 1.0); // Yellow color for the light position
+        return;
+    }
+
+    // Ambient lighting
     float ambient_strength = 0.1 * light_intensity;
-    vec3 ambient_light_color = vec3(1.0, 1.0, 1.0);
-    vec4 ambient = ambient_strength * vec4(ambient_light_color, 1.0);
-    vec3 diff_light_color = vec3(1.0, 1.0, 1.0);
+    vec3 ambient = ambient_strength * light_color;
 
-    vec3 norm = normalize(normal);
-    vec3 light_dir = normalize(light_pos - frag_pos);
+    // Diffuse lighting
+    float diff = max(dot(norm, light_dir_calc), 0.0);
 
-    float diff = max(dot(norm, light_dir), 0.0);
-    vec3 diffuse = diff * diff_light_color * light_intensity;
+    vec3 diffuse = diff * light_color;
 
-    outColor = (ambient + vec4(diffuse, 1.0)) * texture(texture1, tex_coord);
-    // outColor = texture(texture1, tex_coord);
+    // Specular lighting
+    float specular_strength = 0.5;
+    vec3 view_dir = normalize(view_pos - frag_pos);
+    vec3 reflect_dir = reflect(-light_dir_calc, norm);
+    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+    vec3 specular = specular_strength * spec * light_color;
+
+    // Combine lighting components
+    vec3 lighting = ambient + attenuation * (diffuse + specular);
+
+    // Apply texture color
+    vec4 tex_color = texture(texture1, tex_coord);
+    outColor = vec4(lighting, 1.0) * tex_color;
 }
 )glsl";
+
 
 
 // Shapes
@@ -224,7 +298,15 @@ GLfloat cube_vertices[] =
 // Light globals
 float light_intensity = 1.0f;
 bool light_enabled = true;
-glm::vec3 LIGHT_POS = glm::vec3(1.0f, 1.5f, 2.0f);
+glm::vec3 LIGHT_POS = glm::vec3(0.0f, 0.0f, 0.0f);
+
+enum LightType
+{
+    Directional = 0,
+    Point = 1,
+    Spotlight = 2
+};
+
 
 // Main loop functions
 // --------------------
@@ -326,6 +408,13 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
     float update_interval = 0.2;    // Timer for FPS update
     float time_accumulator = 0; // Time passed since last FPS update
     int frame_count = 0;
+
+    // Light
+    glm::vec3 LIGHT_POS = glm::vec3(0.0f, 1.5f, 0.0f); // Light position above the cube
+    glm::vec3 LIGHT_DIR = glm::vec3(0.0f, -1.0f, -1.0f); // Light direction
+    glm::vec3 LIGHT_COLOR = glm::vec3(1.0f, 1.0f, 1.0f); // Light color (white)
+    glm::vec3 CAMERA_POS = glm::vec3(0.0f, 0.0f, 3.0f);  // Camera position
+    int light_type = LightType::Point; // Default to directional light
 
     while (running)
     {
@@ -432,6 +521,22 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
                 {
                     light_enabled = !light_enabled;
                     std::cout << "Light enabled: " << (light_enabled ? "ON" : "OFF") << "\n";
+                }
+
+                else if (window_event.key.code == sf::Keyboard::I)
+                {
+                    light_type = LightType::Directional;
+                    std::cout << "Light type: Directional\n";
+                }
+                else if (window_event.key.code == sf::Keyboard::O)
+                {
+                    light_type = LightType::Point;
+                    std::cout << "Light type: Point\n";
+                }
+                else if (window_event.key.code == sf::Keyboard::P)
+                {
+                    light_type = LightType::Spotlight;
+                    std::cout << "Light type: Spotlight\n";
                 }
 
                 break;
@@ -541,11 +646,15 @@ void main_loop(sf::Window& window, GLuint shader_program, GLuint vao, GLuint vbo
         }
 
         // Update uniforms
-        GLint light_intensity_loc = glGetUniformLocation(shader_program, "light_intensity");
-        glUniform1f(light_intensity_loc, light_intensity);
-
-        GLint light_enabled_loc = glGetUniformLocation(shader_program, "light_enabled");
-        glUniform1i(light_enabled_loc, light_enabled);
+        glUniform3fv(glGetUniformLocation(shader_program, "light_pos"), 1, glm::value_ptr(LIGHT_POS));
+        glUniform3fv(glGetUniformLocation(shader_program, "light_dir"), 1, glm::value_ptr(LIGHT_DIR));
+        glUniform3fv(glGetUniformLocation(shader_program, "light_color"), 1, glm::value_ptr(LIGHT_COLOR));
+        glUniform3fv(glGetUniformLocation(shader_program, "view_pos"), 1, glm::value_ptr(CAMERA_POS));
+        glUniform1i(glGetUniformLocation(shader_program, "light_type"), light_type);
+        glUniform1i(glGetUniformLocation(shader_program, "light_enabled"), light_enabled);
+        glUniform1f(glGetUniformLocation(shader_program, "light_intensity"), light_intensity);
+        glUniform1f(glGetUniformLocation(shader_program, "light_cut_off"), glm::cos(glm::radians(12.5f * 2)));
+        glUniform1f(glGetUniformLocation(shader_program, "light_outer_cut_off"), glm::cos(glm::radians(17.5f * 2)));
 
         // Clear the screen to black
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
