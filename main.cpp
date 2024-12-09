@@ -277,9 +277,88 @@ bool load_obj(const std::string& filePath, std::vector<GLfloat>& vertices, std::
     return true;
 }
 
-void split_model_horizontally()
+void split_model_horizontally(std::vector<Model*>& models, int model_id, GLuint shader_program, std::string base_name, std::string top_name, glm::vec3 base_color, glm::vec3 top_color)
 {
-    return;
+    if (!models.empty())
+    {
+        Model* original_model = models[model_id];
+
+        // Vectors storing new vertices and indecies
+        std::vector<GLfloat> org_vertices = original_model->vertices;
+        std::vector<GLuint> org_indices = original_model->indices;
+
+        std::vector<GLfloat> top_vertices;
+        std::vector<GLuint> top_indices;
+        std::vector<GLfloat> base_vertices;
+        std::vector<GLuint> base_indices;
+
+        // Threshold for backrest on Y axis
+        float backrest_threshold = 2.f;
+
+        // Vertice mapping
+        std::map<GLuint, GLuint> top_vertex_mapping;
+        std::map<GLuint, GLuint> base_vertex_mapping;
+
+        GLuint current_top_index = 0;
+        GLuint current_base_index = 0;
+
+        // Iteration through chair indecies
+        for (size_t i = 0; i < org_indices.size(); i += 3)
+        {
+            // Gett all triangle vertices
+            GLuint idx0 = org_indices[i];
+            GLuint idx1 = org_indices[i + 1];
+            GLuint idx2 = org_indices[i + 2];
+
+            // Get average Y value for the triangle
+            float y0 = org_vertices[idx0 * 3 + 1];
+            float y1 = org_vertices[idx1 * 3 + 1];
+            float y2 = org_vertices[idx2 * 3 + 1];
+            float average_y = (y0 + y1 + y2) / 3.0f;
+
+            if (average_y > backrest_threshold)
+            {
+                // Assign to top
+                for (int j = 0; j < 3; ++j)
+                {
+                    GLuint original_idx = org_indices[i + j];
+                    if (top_vertex_mapping.find(original_idx) == top_vertex_mapping.end())
+                    {
+                        top_vertex_mapping[original_idx] = current_top_index++;
+                        top_vertices.push_back(org_vertices[original_idx * 3]);
+                        top_vertices.push_back(org_vertices[original_idx * 3 + 1]);
+                        top_vertices.push_back(org_vertices[original_idx * 3 + 2]);
+                    }
+                    top_indices.push_back(top_vertex_mapping[original_idx]);
+                }
+            }
+            else
+            {
+                // Assign to base
+                for (int j = 0; j < 3; ++j)
+                {
+                    GLuint original_idx = org_indices[i + j];
+                    if (base_vertex_mapping.find(original_idx) == base_vertex_mapping.end())
+                    {
+                        base_vertex_mapping[original_idx] = current_base_index++;
+                        base_vertices.push_back(org_vertices[original_idx * 3]);
+                        base_vertices.push_back(org_vertices[original_idx * 3 + 1]);
+                        base_vertices.push_back(org_vertices[original_idx * 3 + 2]);
+                    }
+                    base_indices.push_back(base_vertex_mapping[original_idx]);
+                }
+            }
+        }
+
+        // Create new models
+        Model* base = new Model(base_name, base_vertices, base_indices, base_color, shader_program);
+        Model* top = new Model(top_name, top_vertices, top_indices, top_color, shader_program);
+
+        // Replace original model with new ones
+        delete models[model_id];
+        models[model_id] = base;
+        models.push_back(top);
+    }
 }
 
 // Paths
@@ -386,7 +465,7 @@ int main()
     glUniformMatrix4fv(uni_proj, 1, GL_FALSE, glm::value_ptr(proj_matrix));
     check_gl_error("Setting proj_matrix");
 
-    // Deklaracja i ustawienie początkowej macierzy widoku
+    // Declaration and setting of view matrix
     glm::vec3 camera_pos = glm::vec3(0.0f, 0.0f, 3.0f);
     glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 camera_up = glm::vec3(0.0f, 1.0f, 0.f);
@@ -447,93 +526,6 @@ int main()
         models.push_back(new_model);
     }
 
-    if (!models.empty())
-    {
-        int chair_id = 0; // Chair's index within models
-        Model* original_chair = models[chair_id];
-
-        // Vectors storing new vertices and indecies
-        std::vector<GLfloat> chair_vertices = original_chair->vertices;
-        std::vector<GLuint> chair_indices = original_chair->indices;
-
-        std::vector<GLfloat> backrest_vertices;
-        std::vector<GLuint> backrest_indices;
-        std::vector<GLfloat> chair_base_vertices;
-        std::vector<GLuint> chair_base_indices;
-
-        // Threshold for backrest on Y axis
-        float backrest_threshold = 2.f;
-
-        // Vertice mapping
-        std::map<GLuint, GLuint> backrest_vertex_mapping;
-        std::map<GLuint, GLuint> chair_base_vertex_mapping;
-
-        GLuint current_backrest_index = 0;
-        GLuint current_chair_base_index = 0;
-
-        // Iteration through chair indecies
-        for (size_t i = 0; i < chair_indices.size(); i += 3)
-        {
-            // Gett all triangle vertices
-            GLuint idx0 = chair_indices[i];
-            GLuint idx1 = chair_indices[i + 1];
-            GLuint idx2 = chair_indices[i + 2];
-
-            // Get average Y value for the triangle
-            float y0 = chair_vertices[idx0 * 3 + 1];
-            float y1 = chair_vertices[idx1 * 3 + 1];
-            float y2 = chair_vertices[idx2 * 3 + 1];
-            float average_y = (y0 + y1 + y2) / 3.0f;
-
-            if (average_y > backrest_threshold)
-            {
-                // Assign to backrest
-                for (int j = 0; j < 3; ++j)
-                {
-                    GLuint original_idx = chair_indices[i + j];
-                    if (backrest_vertex_mapping.find(original_idx) == backrest_vertex_mapping.end())
-                    {
-                        backrest_vertex_mapping[original_idx] = current_backrest_index++;
-                        backrest_vertices.push_back(chair_vertices[original_idx * 3]);
-                        backrest_vertices.push_back(chair_vertices[original_idx * 3 + 1]);
-                        backrest_vertices.push_back(chair_vertices[original_idx * 3 + 2]);
-                    }
-                    backrest_indices.push_back(backrest_vertex_mapping[original_idx]);
-                }
-            }
-            else
-            {
-                // Assign to chair base
-                for (int j = 0; j < 3; ++j)
-                {
-                    GLuint original_idx = chair_indices[i + j];
-                    if (chair_base_vertex_mapping.find(original_idx) == chair_base_vertex_mapping.end())
-                    {
-                        chair_base_vertex_mapping[original_idx] = current_chair_base_index++;
-                        chair_base_vertices.push_back(chair_vertices[original_idx * 3]);
-                        chair_base_vertices.push_back(chair_vertices[original_idx * 3 + 1]);
-                        chair_base_vertices.push_back(chair_vertices[original_idx * 3 + 2]);
-                    }
-                    chair_base_indices.push_back(chair_base_vertex_mapping[original_idx]);
-                }
-            }
-        }
-
-        // Create new models
-        glm::vec3 chair_base_color(0.8f, 0.5f, 0.2f);   // Brown
-        glm::vec3 backrest_color(0.2f, 0.2f, 0.8f);     // Blue
-
-        Model* chair_base = new Model("Chair Base", chair_base_vertices, chair_base_indices, chair_base_color, shader_program);
-        Model* backrest = new Model("Backrest", backrest_vertices, backrest_indices, backrest_color, shader_program);
-
-        // Replace original model with new ones
-        delete models[chair_id];
-        models[chair_id] = chair_base;
-        models.push_back(backrest);
-    }
-
-    // split model
-
     // Debug loaded models
     std::cout << SEPARATOR;
     std::cout << "Loaded " << models.size() << " models.\n";
@@ -544,6 +536,11 @@ int main()
         std::cout << "\tindices=" << models[i]->indices.size() << "\n";
         std::cout << "\tcolour=(" << models[i]->color.r << ", " << models[i]->color.g << ", " << models[i]->color.b << ")\n";
     }
+
+    // Split chair model
+    glm::vec3 chair_base_color(0.8f, 0.5f, 0.2f);   // Brown
+    glm::vec3 chair_top_color(0.2f, 0.2f, 0.8f);    // Blue
+    split_model_horizontally(models, 0, shader_program, "chair_base", "chair_backseat", chair_base_color, chair_top_color);
 
     // Print controls
     std::cout << SEPARATOR;
