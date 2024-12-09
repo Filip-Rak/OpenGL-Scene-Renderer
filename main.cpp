@@ -277,7 +277,7 @@ bool load_obj(const std::string& filePath, std::vector<GLfloat>& vertices, std::
     return true;
 }
 
-void split_model_horizontally(std::vector<Model*>& models, int model_id, GLuint shader_program, std::string base_name, std::string top_name, glm::vec3 base_color, glm::vec3 top_color)
+void split_model_horizontally(std::vector<Model*>& models, int model_id, float threshold, GLuint shader_program, std::string base_name, std::string top_name, glm::vec3 base_color, glm::vec3 top_color)
 {
     if (models.empty())
         return;
@@ -293,9 +293,6 @@ void split_model_horizontally(std::vector<Model*>& models, int model_id, GLuint 
     std::vector<GLfloat> base_vertices;
     std::vector<GLuint> base_indices;
 
-    // Threshold for backrest on Y axis
-    float backrest_threshold = 2.f;
-
     // Vertice mapping
     std::map<GLuint, GLuint> top_vertex_mapping;
     std::map<GLuint, GLuint> base_vertex_mapping;
@@ -303,7 +300,7 @@ void split_model_horizontally(std::vector<Model*>& models, int model_id, GLuint 
     GLuint current_top_index = 0;
     GLuint current_base_index = 0;
 
-    // Iteration through chair indecies
+    // Iteration through indecies
     for (size_t i = 0; i < org_indices.size(); i += 3)
     {
         // Get all triangle vertices
@@ -317,7 +314,7 @@ void split_model_horizontally(std::vector<Model*>& models, int model_id, GLuint 
         float y2 = org_vertices[idx2 * 3 + 1];
         float average_y = (y0 + y1 + y2) / 3.0f;
 
-        if (average_y > backrest_threshold)
+        if (average_y > threshold)
         {
             // Assign to top
             for (int j = 0; j < 3; ++j)
@@ -533,8 +530,8 @@ int main()
     glm::vec3 table_base_color(1.0f, 0.0f, 0.8f);
     glm::vec3 table_top_color(0.8f, 1.f, 0.6f);
 
-    split_model_horizontally(models, 0, shader_program, "chair_base", "chair_backseat", chair_base_color, chair_top_color);
-    // split_model_horizontally(models, 1, shader_program, "table_base", "table_backseat", table_base_color, table_top_color);
+    split_model_horizontally(models, 0, 2.f, shader_program, "chair_base", "chair_backseat", chair_base_color, chair_top_color);
+    // split_model_horizontally(models, 1, 2.f, shader_program, "table_base", "table_backseat", table_base_color, table_top_color);
 
     // Debug loaded models
     std::cout << SEPARATOR;
