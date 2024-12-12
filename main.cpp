@@ -17,6 +17,8 @@
 #include <vector>
 #include <map>
 #include <string>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 // Constants
 // --------------------
@@ -44,11 +46,14 @@ const std::string SEPARATOR = std::string(45, '-') + "\n";
 // Shaders
 // --------------------
 
-// Vertex shader takes care of positioning on the screen
+// Vertex Shader: Responsible for transforming vertex positions and passing texture coordinates.
 const GLchar* vertex_source = R"glsl(
 #version 150 core
 
 in vec3 position; // Input vertex position
+in vec2 texcoord; // Input texture coordinate
+
+out vec2 TexCoord; // Pass to fragment shader
 
 // Uniforms for transformation matrices
 uniform mat4 model_matrix;  // Model
@@ -57,21 +62,34 @@ uniform mat4 proj_matrix;   // Projection
 
 void main() 
 {
-    // Set the position of the vertex
+    TexCoord = texcoord;
     gl_Position = proj_matrix * view_matrix * model_matrix * vec4(position, 1.0);
 }
+
 )glsl";
 
 // Fragment shader's job is to figure out area between surfaces
 const GLchar* fragment_source = R"glsl(
 #version 150 core
 
+in vec2 TexCoord; // Texture coordinate from vertex shader
+
 uniform vec3 model_color;      // Color for the model
+uniform bool use_texture;      // Flag indicating whether to use texture
+uniform sampler2D tex;         // Texture sampler
+
 out vec4 outColor;             // Output color to the framebuffer
 
 void main() 
 {
-    outColor = vec4(model_color, 1.0);  // Set the fragment color with full opacity
+    if (use_texture)
+    {
+        outColor = texture(tex, TexCoord);
+    }
+    else
+    {
+        outColor = vec4(model_color, 1.0);  // Set the fragment color with full opacity
+    }
 }
 )glsl";
 
@@ -137,20 +155,22 @@ void check_gl_error(const std::string& context)
 
 // Model Structure
 // ------------------
-struct Model 
+struct Model
 {
     std::string name;
-    std::vector<GLfloat> vertices;
+    std::vector<GLfloat> vertices; // Positions and texture cords
     std::vector<GLuint> indices;
-    GLuint vao;                      // Vertex Array Object
-    GLuint vbo;                      // Vertex Buffer Object
-    GLuint ebo;                      // Element Buffer Object
+    GLuint vao;
+    GLuint vbo;
+    GLuint ebo;
     glm::mat4 model_matrix;
-    glm::vec3 color;    // Model's rendering colour
+    glm::vec3 color;    // Model colour
+    GLuint texture;    // ID. Equal to 0 if not present
+    std::string texture_name;
 
     // Constructor
-    Model(const std::string name, const std::vector<GLfloat>& verts, const std::vector<GLuint>& inds, const glm::vec3& col, const GLuint shader_prog)
-        : name(name), vertices(verts), indices(inds), color(col), model_matrix(1.0f)
+    Model(const std::string name, const std::vector<GLfloat>& verts, const std::vector<GLuint>& inds, const glm::vec3& col, const GLuint shader_prog, GLuint tex = 0, std::string tex_name = "")
+        : name(name), vertices(verts), indices(inds), color(col), texture(tex), texture_name(tex_name), model_matrix(1.0f)
     {
         // VAO, VBO, EBO Initialization
         glGenVertexArrays(1, &vao);
@@ -176,8 +196,18 @@ struct Model
             std::cerr << "Attribute 'position' not found in shader.\n";
         }
         glEnableVertexAttribArray(pos_attrib);
-        glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
-        check_gl_error("Vertex Attribute Setup");
+        glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)0); // 3 positions + 2 texcoords
+        check_gl_error("Vertex Position Attribute Setup");
+
+        // Texture Coordinate attribute
+        GLint tex_attrib = glGetAttribLocation(shader_prog, "texcoord");
+        if (tex_attrib == -1)
+        {
+            std::cerr << "Attribute 'texcoord' not found in shader.\n";
+        }
+        glEnableVertexAttribArray(tex_attrib);
+        glVertexAttribPointer(tex_attrib, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat))); // Positional offset
+        check_gl_error("Vertex TexCoord Attribute Setup");
 
         glBindVertexArray(0);
     }
@@ -188,12 +218,14 @@ struct Model
         glDeleteBuffers(1, &vbo);
         glDeleteBuffers(1, &ebo);
         glDeleteVertexArrays(1, &vao);
+        if (texture != 0)
+            glDeleteTextures(1, &texture);
     }
 
-    // Function to render the model
+    // Model rendering function
     void draw(GLuint shader_program)
     {
-        // Setup model's matrix
+        // Set model matrix
         GLint uni_model = glGetUniformLocation(shader_program, "model_matrix");
         if (uni_model == -1)
         {
@@ -201,13 +233,34 @@ struct Model
         }
         glUniformMatrix4fv(uni_model, 1, GL_FALSE, glm::value_ptr(model_matrix));
 
-        // Set up model's colour
+        // Set model's color
         GLint uni_color = glGetUniformLocation(shader_program, "model_color");
         if (uni_color == -1)
         {
             std::cerr << "Uniform 'model_color' not found.\n";
         }
         glUniform3fv(uni_color, 1, glm::value_ptr(color));
+
+        // Set flag of using texture
+        GLint uni_use_texture = glGetUniformLocation(shader_program, "use_texture");
+        if (uni_use_texture == -1)
+        {
+            std::cerr << "Uniform 'use_texture' not found.\n";
+        }
+        glUniform1i(uni_use_texture, texture != 0 ? 1 : 0);
+
+        // Bind the texture if available
+        if (texture != 0)
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            GLint uni_tex = glGetUniformLocation(shader_program, "tex");
+            if (uni_tex == -1)
+            {
+                std::cerr << "Uniform 'tex' not found.\n";
+            }
+            glUniform1i(uni_tex, 0);
+        }
 
         // Rendering
         glBindVertexArray(vao);
@@ -229,6 +282,7 @@ bool load_obj(const std::string& filePath, std::vector<GLfloat>& vertices, std::
     }
 
     std::vector<glm::vec3> temp_positions;
+    std::vector<glm::vec2> temp_texcoords;
     std::vector<GLuint> temp_indices;
 
     std::string line;
@@ -244,6 +298,12 @@ bool load_obj(const std::string& filePath, std::vector<GLfloat>& vertices, std::
             ss >> position.x >> position.y >> position.z;
             temp_positions.push_back(position);
         }
+        else if (prefix == "vt")
+        {
+            glm::vec2 texcoord;
+            ss >> texcoord.x >> texcoord.y;
+            temp_texcoords.push_back(texcoord);
+        }
         else if (prefix == "f")
         {
             std::string vertexStr;
@@ -251,117 +311,127 @@ bool load_obj(const std::string& filePath, std::vector<GLfloat>& vertices, std::
             {
                 ss >> vertexStr;
                 std::istringstream vertexSS(vertexStr);
-                std::string indexStr;
-                std::getline(vertexSS, indexStr, '/');
-                if (indexStr.empty())
+                std::string posStr, texStr;
+                GLuint posIndex = 0, texIndex = 0;
+
+                // Parse position and texture (format: pos/tex)
+                if (std::getline(vertexSS, posStr, '/'))
+                {
+                    posIndex = std::stoi(posStr);
+                }
+                if (std::getline(vertexSS, texStr, '/'))
+                {
+                    if (!texStr.empty())
+                        texIndex = std::stoi(texStr);
+                }
+
+                if (posIndex == 0)
                 {
                     std::cerr << "Error: Invalid face format in file " << filePath << "\n";
                     return false;
                 }
-                GLuint vertexIndex = std::stoi(indexStr);
-                temp_indices.push_back(vertexIndex - 1);
+
+                // OBJ index starts from 1
+                temp_indices.push_back(posIndex - 1);
+
+                // Add texcoord to vertices
+                if (texIndex > 0 && texIndex <= temp_texcoords.size())
+                {
+                    vertices.push_back(temp_texcoords[texIndex - 1].x);
+                    vertices.push_back(temp_texcoords[texIndex - 1].y);
+                }
+                else
+                {
+                    // Set as default if no texcoord
+                    vertices.push_back(0.0f);
+                    vertices.push_back(0.0f);
+                }
             }
         }
     }
 
-    // Move positions to vertices vector
-    for (const auto& pos : temp_positions)
+    // Move position to vertices including texcoords
+    std::vector<GLfloat> final_vertices;
+    for (size_t i = 0; i < temp_positions.size(); ++i)
     {
-        vertices.push_back(pos.x);
-        vertices.push_back(pos.y);
-        vertices.push_back(pos.z);
+        final_vertices.push_back(temp_positions[i].x);
+        final_vertices.push_back(temp_positions[i].y);
+        final_vertices.push_back(temp_positions[i].z);
+        if (i < temp_texcoords.size())
+        {
+            final_vertices.push_back(temp_texcoords[i].x);
+            final_vertices.push_back(temp_texcoords[i].y);
+        }
+        else
+        {
+            final_vertices.push_back(0.0f);
+            final_vertices.push_back(0.0f);
+        }
     }
 
+    vertices = final_vertices;
     indices = temp_indices;
     file.close();
     return true;
 }
 
-void split_model_horizontally(std::vector<Model*>& models, int model_id, float threshold, GLuint shader_program, std::string base_name, std::string top_name, glm::vec3 base_color, glm::vec3 top_color)
+GLuint load_texture(const std::string& file_path)
 {
-    if (models.empty())
-        return;
-    
-    Model* original_model = models[model_id];
+    // OpenGL want the texture to be flipped
+    stbi_set_flip_vertically_on_load(true);
 
-    // Vectors storing new vertices and indecies
-    std::vector<GLfloat> org_vertices = original_model->vertices;
-    std::vector<GLuint> org_indices = original_model->indices;
+    // Store the number of channels
+    int width, height, nrChannels;
 
-    std::vector<GLfloat> top_vertices;
-    std::vector<GLuint> top_indices;
-    std::vector<GLfloat> base_vertices;
-    std::vector<GLuint> base_indices;
-
-    // Vertice mapping
-    std::map<GLuint, GLuint> top_vertex_mapping;
-    std::map<GLuint, GLuint> base_vertex_mapping;
-
-    GLuint current_top_index = 0;
-    GLuint current_base_index = 0;
-
-    // Iteration through indecies
-    for (size_t i = 0; i < org_indices.size(); i += 3)
+    // Load the texture with stb image
+    unsigned char* data = stbi_load(file_path.c_str(), &width, &height, &nrChannels, 0);
+    if (!data)
     {
-        // Get all triangle vertices
-        GLuint idx0 = org_indices[i];
-        GLuint idx1 = org_indices[i + 1];
-        GLuint idx2 = org_indices[i + 2];
-
-        // Get average Y value for the triangle
-        float y0 = org_vertices[idx0 * 3 + 1];
-        float y1 = org_vertices[idx1 * 3 + 1];
-        float y2 = org_vertices[idx2 * 3 + 1];
-        float average_y = (y0 + y1 + y2) / 3.0f;
-
-        if (average_y > threshold)
-        {
-            // Assign to top
-            for (int j = 0; j < 3; ++j)
-            {
-                GLuint original_idx = org_indices[i + j];
-                if (top_vertex_mapping.find(original_idx) == top_vertex_mapping.end())
-                {
-                    top_vertex_mapping[original_idx] = current_top_index++;
-                    top_vertices.push_back(org_vertices[original_idx * 3]);
-                    top_vertices.push_back(org_vertices[original_idx * 3 + 1]);
-                    top_vertices.push_back(org_vertices[original_idx * 3 + 2]);
-                }
-                top_indices.push_back(top_vertex_mapping[original_idx]);
-            }
-        }
-        else
-        {
-            // Assign to base
-            for (int j = 0; j < 3; ++j)
-            {
-                GLuint original_idx = org_indices[i + j];
-                if (base_vertex_mapping.find(original_idx) == base_vertex_mapping.end())
-                {
-                    base_vertex_mapping[original_idx] = current_base_index++;
-                    base_vertices.push_back(org_vertices[original_idx * 3]);
-                    base_vertices.push_back(org_vertices[original_idx * 3 + 1]);
-                    base_vertices.push_back(org_vertices[original_idx * 3 + 2]);
-                }
-                base_indices.push_back(base_vertex_mapping[original_idx]);
-            }
-        }
+        std::cerr << "Failed to load texture: " << file_path << "\n";
+        return 0;
     }
 
-    // Create new models
-    Model* base = new Model(base_name, base_vertices, base_indices, base_color, shader_program);
-    Model* top = new Model(top_name, top_vertices, top_indices, top_color, shader_program);
+    GLuint texture_id;
+    glGenTextures(1, &texture_id);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
 
-    // Replace original model with new ones
-    delete models[model_id];
-    models[model_id] = base;
-    models.push_back(top);
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Red image's format
+    GLenum format;
+    if (nrChannels == 1)
+        format = GL_RED;
+    else if (nrChannels == 3)
+        format = GL_RGB;
+    else if (nrChannels == 4)
+        format = GL_RGBA;
+    else
+    {
+        std::cerr << "Unsupported number of channels (" << nrChannels << ") in texture: " << file_path << "\n";
+        stbi_image_free(data);
+        return 0;
+    }
+
+    // Pass texture data to OpenGL
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    // Free image memory
+    stbi_image_free(data);
+    glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture
+
+    return texture_id;
 }
 
 // Paths
 // --------------------
 const std::string ASSETS_PATH = "assets/";
 const std::string MODELS_PATH = ASSETS_PATH + "models/";
+const std::string TEXTURE_PATH = ASSETS_PATH + "textures/";
 
 // Main function
 // --------------------
@@ -475,13 +545,22 @@ int main()
     glUniformMatrix4fv(uni_view, 1, GL_FALSE, glm::value_ptr(view_matrix));
     check_gl_error("Setting view_matrix");
 
+    // Set texture
+    GLint uni_tex = glGetUniformLocation(shader_program, "tex");
+    if (uni_tex == -1)
+    {
+        std::cerr << "Uniform 'tex' not found.\n";
+    }
+    glUniform1i(uni_tex, 0);
+    check_gl_error("Setting texture");
+
     // Vector of models
     std::vector<Model*> models;
 
     // Models to load
     std::vector<std::string> model_files = {
         "chair.obj",
-        "table.obj"
+        "table.obj",
     };
 
     // Set colors to each model
@@ -489,6 +568,10 @@ int main()
         glm::vec3(0.2f, 0.2f, 0.8f),
         glm::vec3(1.0f, 0.0f, 0.8f)
     };
+
+    // Load texture
+    std::string texture_name = "obanma.png";
+    GLuint texture_id = load_texture(TEXTURE_PATH + texture_name);
 
     // Loading models
     for (size_t i = 0; i < model_files.size(); ++i)
@@ -507,14 +590,14 @@ int main()
         glm::vec3 color = (i < model_colors.size()) ? model_colors[i] : glm::vec3(static_cast<float>(rand()) / RAND_MAX, static_cast<float>(rand()) / RAND_MAX, static_cast<float>(rand()) / RAND_MAX);
 
         // Create the moddel and add it to the list
-        Model* new_model = new Model(model_files[i], vertices, indices, color, shader_program);
+        Model* new_model = new Model(model_files[i], vertices, indices, color, shader_program, texture_id, texture_name);
 
         // Adjust model's positiona and rotationl properties
-        if (models.size() == 0) // First model (chair)
+        if (i == 0) // First model (chair)
         {
             new_model->model_matrix = glm::translate(new_model->model_matrix, glm::vec3(0.f, 0.0f, 0.0f));
         }
-        else if (models.size() == 1) // Second model (table)
+        else if (i == 1) // Second model (table)
         {
             new_model->model_matrix = glm::translate(new_model->model_matrix, glm::vec3(-2.f, 0.0f, -3.0f));
             new_model->model_matrix = glm::rotate(new_model->model_matrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -530,18 +613,23 @@ int main()
     glm::vec3 table_base_color(1.0f, 0.0f, 0.8f);
     glm::vec3 table_top_color(0.8f, 1.f, 0.6f);
 
-    split_model_horizontally(models, 0, 2.f, shader_program, "chair_base", "chair_backseat", chair_base_color, chair_top_color);
-    // split_model_horizontally(models, 1, 2.f, shader_program, "table_base", "table_backseat", table_base_color, table_top_color);
-
     // Debug loaded models
     std::cout << SEPARATOR;
     std::cout << "Loaded " << models.size() << " models.\n";
     for (size_t i = 0; i < models.size(); ++i)
     {
         std::cout << models[i]->name << "\n";
-        std::cout << "\tvertices=" << models[i]->vertices.size() / 3 << "\n";
+        std::cout << "\tvertices=" << models[i]->vertices.size() / 5 << "\n";
         std::cout << "\tindices=" << models[i]->indices.size() << "\n";
         std::cout << "\tcolour=(" << models[i]->color.r << ", " << models[i]->color.g << ", " << models[i]->color.b << ")\n";
+        if (models[i]->texture != 0)
+        {
+            std::cout << "\ttexture_id=" << models[i]->texture << "\n";
+            std::cout << "\ttexture_name=" << models[i]->texture_name << "\n";
+        }
+        else
+            std::cout << "\ttexture: none\n";
+
     }
 
     // Print controls
