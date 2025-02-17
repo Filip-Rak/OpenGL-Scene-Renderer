@@ -11,13 +11,6 @@ The project demonstrates key concepts in computer graphics, including:
 
 ---
 
-## Features
-- **First-Person Camera**: Move around the scene using the keyboard and mouse.
-- **3D Object Rendering**: Render multiple 3D objects with textures and lighting.
-- **Texture Mapping**: Apply textures to objects.
-
----
-
 ## Screenshots
 Here are some screenshots of the project:
 
@@ -31,6 +24,13 @@ Here are some screenshots of the project:
 3. **Multiple Textured Models**
    ![Multiple Obamas](media/multiple_obamas.png)
    *Description: Multiple models with applied Obama texture*
+---
+
+## Features
+- **First-Person Camera**: Move around the scene using the keyboard and mouse.
+- **3D Object Rendering**: Render multiple 3D objects with textures and lighting.
+- **Texture Mapping**: Apply textures to objects.
+
 ---
 
 ## Technologies Used
