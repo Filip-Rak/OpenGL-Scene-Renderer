@@ -23,7 +23,7 @@ Here are some screenshots of the project:
    *Description: A cube with a custom texture applied.*
 3. **Multiple Textured Models**
    ![Multiple Obamas](media/multiple_obamas.png)
-   *Description: Multiple models with applied Obama texture*
+   *Description: Multiple models with Obama texture applied*
 ---
 
 ## Features
