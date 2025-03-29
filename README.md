@@ -44,6 +44,6 @@ Here are some screenshots of the project:
 ## Installation
 
 1. Open **Visual Studio** and click **"Clone a repository"**.
-2. Paste the project's URL as the location: https://github.com/Filip-Rak/OpenGL_DataVisualization
+2. Paste the project's URL as the location: https://github.com/Filip-Rak/OpenGL_DataVisualization.git
 3. Once downloaded, **unpack** the `dependencies.zip` file within the project's **main directory**.
 
