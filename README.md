@@ -44,12 +44,12 @@ The scene showcases a simple indoor layout with multiple textured models (e.g., 
 
 1. Open **Visual Studio** and click **"Clone a repository"**.
 2. Paste this repo’s URL:  
-   `https://github.com/Filip-Rak/OpenGL_DataVisualization.git`
+   `https://github.com/Filip-Rak/OpenGL-Scene-Renderer.git`
 3. Unpack the `dependencies.zip` file into the project's **main directory**.
 4. Open the `.sln` file and build/run from Visual Studio.
 
 ---
 
 ## Notes
-This basic project was created as an exploratory dive into OpenGL fundamentals and does not represent a finished application.
+This basic project was created as an exploratory dive into OpenGL fundamentals and does not represent a fully functional application.
 
