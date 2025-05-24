@@ -1,49 +1,55 @@
-# OpenGL Data Visualization
+# OpenGL Scene Renderer
 
 ## Overview
-This repository contains the code and resources for a project developed during the **Data Visualization** course in the fifth semester at **AGH University of Krakow**. The project focuses on creating an interactive 3D scene using **OpenGL** in **C++**, with the help of the **SFML** (Simple and Fast Multimedia Library) and **GLM** (OpenGL Mathematics) libraries. The scene features a **first-person camera** that allows the user to navigate and interact with multiple 3D objects.
+This project is a lightweight 3D graphics sandbox built using **OpenGL** in **C++**, featuring a controllable **first-person camera**, interactive navigation, and basic object rendering. Developed to explore low-level graphics programming, it integrates key concepts like camera movement, texture mapping, lighting, and shader-driven rendering.
 
-The project demonstrates key concepts in computer graphics, including:
-- 3D object rendering
-- Texture mapping
-- Lighting and shading
-- Camera movement and interaction
+The scene showcases a simple indoor layout with multiple textured models (e.g., cubes, table, chair) and supports interactive exploration using standard FPS-style controls.
 
 ---
 
 ## Screenshots
-Here are some screenshots of the project:
 
-1. **Scene with Multiple Models**  
+1. **Basic Scene Layout**  
    ![Final Scene](media/multiple.png)  
-   *Description: The final scene featuring multiple 3D models. Lightning and textures are disabled.*
+   *Multiple 3D models rendered in a single scene.*
 
-2. **Cube with Obama Texture**  
+2. **Textured Cube Example**  
    ![Obama Cube](media/obama_cube.png)  
-   *Description: A cube with a custom texture applied.*
-3. **Multiple Textured Models**
-   ![Multiple Obamas](media/multiple_obamas.png)
-   *Description: Multiple models with Obama texture applied*
+   *A cube with a custom texture applied.*
+
+3. **Multiple Textured Models**  
+   ![Multiple Obamas](media/multiple_obamas.png)  
+   *Scene with multiple textured model instances.*
+
 ---
 
 ## Features
-- **First-Person Camera**: Move around the scene using the keyboard and mouse.
-- **3D Object Rendering**: Render multiple 3D objects with textures and lighting.
-- **Texture Mapping**: Apply textures to objects.
+- **First-Person Camera**: Navigate the 3D environment using keyboard and mouse.
+- **3D Object Rendering**: Supports rendering multiple textured models in real time.
+- **Texture Mapping**: Load and apply 2D textures to 3D surfaces.
+- **Custom Shader Pipeline**: Supporting integrated shaders for lighting and effects.
+- **Modular Scene Setup**: Easily extendable to include new models or controls.
 
 ---
 
 ## Technologies Used
-- **OpenGL**: For rendering 3D graphics.
-- **SFML**: For window management, input handling, and context creation.
-- **GLM**: For mathematics operations like vectors, matrices, and transformations.
-- **C++**: The primary programming language used for development.
+- **OpenGL** – Core 3D rendering
+- **SFML** – Windowing and input handling
+- **GLM** – Vector/matrix math for transformations and camera movement
+- **C++** – Application structure and logic
 
 ---
 
 ## Installation
 
 1. Open **Visual Studio** and click **"Clone a repository"**.
-2. Paste the project's URL as the location: https://github.com/Filip-Rak/OpenGL_DataVisualization.git
-3. Once downloaded, **unpack** the `dependencies.zip` file within the project's **main directory**.
+2. Paste this repo’s URL:  
+   `https://github.com/Filip-Rak/OpenGL_DataVisualization.git`
+3. Unpack the `dependencies.zip` file into the project's **main directory**.
+4. Open the `.sln` file and build/run from Visual Studio.
+
+---
+
+## Notes
+This basic project was created as an exploratory dive into OpenGL fundamentals and does not represent a finished application.
 
