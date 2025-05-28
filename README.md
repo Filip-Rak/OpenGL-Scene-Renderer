@@ -1,7 +1,7 @@
 # OpenGL Scene Renderer
 
 ## Overview
-This project is a lightweight 3D graphics sandbox built using **OpenGL** in **C++**, featuring a controllable **first-person camera**, interactive navigation, and basic object rendering. Developed to explore low-level graphics programming, it integrates key concepts like camera movement, texture mapping, lighting, and shader-driven rendering.
+A lightweight 3D graphics sandbox built using **OpenGL** in **C++**, featuring a controllable **first-person camera**, interactive navigation, and basic object rendering. Developed to explore low-level graphics programming, it integrates key concepts like camera movement, texture mapping, lighting, and shader-driven rendering.
 
 The scene showcases a simple indoor layout with multiple textured models (e.g., cubes, table, chair) and supports interactive exploration using standard FPS-style controls.
 
